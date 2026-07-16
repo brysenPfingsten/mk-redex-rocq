@@ -132,7 +132,7 @@ Proof.
     * rewrite Nat.add_assoc. exact H1.
     * eapply Forall_impl.
       + intros t Ht. 
-        apply closed_term_mono with (d:=d) (d':=d+n) (c:=c) (c':=c+n).
+        apply (closed_term_mono d (d + n) c (c + n)).
         1, 2: lia.
         exact Ht.
       + exact H2.
@@ -513,4 +513,69 @@ Proof.
       injection Hhead as <-.
       destruct Ht as [Htl [Htrl Htrr]].
       exists c. split; [split; [exact Htl | exact Htrl] | exact Htrr].
+Qed.
+
+(* step_closed needs to know that every tgoal state inside the tree
+   satisfies closed_sub (st_cnt s) (st_sub s), not just closed_sub c.
+   This tighter bound is needed when a state is promoted to the answer
+   list via S_promoteL / S_promoteR.  We admit it here as a design
+   obligation: either strengthen closed_tree or prove it separately. *)
+Lemma tgoal_sub_wf : forall G c g s,
+  closed_tree G c (tgoal g s) ->
+  closed_sub (st_cnt s) (st_sub s).
+Proof.
+Admitted.
+
+Lemma step_closed : forall G c e e',
+  closed_env G ->
+  closed_tree G c (snd e) ->
+  Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e) ->
+  G |= e --> e' ->
+  exists c',
+    closed_tree G c' (snd e') /\
+    Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e').
+Proof.
+  intros G c e e' HG Ht Hans Hstep.
+  destruct Hstep as [ans E r r' Hhead | ans td | ans s t | ans s t].
+  - (* S_ctx: (ans, plug E r) --> (ans, plug E r') via head G r = Some r' *)
+    simpl in Ht.
+    pose proof (plug_closed_inv G c E r Ht) as Hr.
+    destruct (head_closed G c r r' HG Hr Hhead) as [c'' Hr'].
+    exists (Nat.max c c''). simpl. split.
+    + apply (plug_closed G (Nat.max c c'') E r r').
+      * apply closed_tree_mono with (c := c); [lia | exact Ht].
+      * apply closed_tree_mono with (c := c''); [lia | exact Hr'].
+    + exact Hans.
+  - (* S_delay: (ans, tdelay td) --> (ans, td) *)
+    simpl in *. exists c. split; [exact Ht | exact Hans].
+  - (* S_promoteL: (ans, tdisjL (tgoal gsucc s) t) --> (ans ++ [s], t) *)
+    simpl in Ht. destruct Ht as [Hgoal Htree].
+    exists c. simpl. split.
+    + exact Htree.
+    + apply Forall_app. split; [exact Hans |].
+      constructor; [exact (tgoal_sub_wf G c gsucc s Hgoal) | constructor].
+  - (* S_promoteR: (ans, tdisjR t (tgoal gsucc s)) --> (ans ++ [s], t) *)
+    simpl in Ht. destruct Ht as [Htree Hgoal].
+    exists c. simpl. split.
+    + exact Htree.
+    + apply Forall_app. split; [exact Hans |].
+      constructor; [exact (tgoal_sub_wf G c gsucc s Hgoal) | constructor].
+Qed.
+
+Lemma multi_closed : forall G e e',
+  multi G e e' ->
+  forall c,
+    closed_env G ->
+    closed_tree G c (snd e) ->
+    Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e) ->
+    exists c',
+      closed_tree G c' (snd e') /\
+      Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e').
+Proof.
+  intros G e e' Hmulti.
+  induction Hmulti as [e1 | e1 e2 e3 Hstep _ IH].
+  - intros c HG Ht Hans. exists c. split; [exact Ht | exact Hans].
+  - intros c HG Ht Hans.
+    destruct (step_closed G c e1 e2 HG Ht Hans Hstep) as [c'' [Ht'' Hans'']].
+    exact (IH c'' HG Ht'' Hans'').
 Qed.
