@@ -1,0 +1,9 @@
+-R src MkRedex
+
+src/Language/Terms.v
+src/Language/Goals.v
+src/Language/Substitution.v
+src/Language/Environments.v
+src/Language/Trees.v
+src/Semantics/Reduction.v
+src/Semantics/WellFormed.v
