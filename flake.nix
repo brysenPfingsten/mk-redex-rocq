@@ -23,7 +23,7 @@
 
         buildPhase = ''
           runHook preBuild
-          make Makefile.coq
+          coq_makefile -f _CoqProject -o Makefile.coq
           make -f Makefile.coq all
           runHook postBuild
         '';
@@ -51,7 +51,7 @@
           coqPackages.coq-lsp
         ];
         shellHook = ''
-          make Makefile.coq
+          coq_makefile -f _CoqProject -o Makefile.coq
         '';
       };
     });
