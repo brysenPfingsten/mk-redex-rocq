@@ -42,7 +42,7 @@ Fixpoint closed_tree (G : env) (c : nat) (t : tree) : Prop :=
   | tgoal g s       =>
       st_cnt s <= c /\
       closed_goal G 0 c g /\
-      closed_sub c (st_sub s)
+      closed_sub (st_cnt s) (st_sub s)
   | tdelay t'       => closed_tree G c t'
   | tproceed r ts s =>
       match nth_error G r with
@@ -210,10 +210,9 @@ Lemma closed_tree_mono : forall G c c' t,
 Proof.
   intros G c c' t Hle. induction t; simpl; intros H.
   - exact H.
-  - destruct H as [Hcnt [Hg Hs]]. repeat split.
-    * lia.
+  - destruct H as [Hg Hs]. repeat split.
     * exact (closed_goal_mono G 0 0 c c' _ (Nat.le_refl 0) Hle Hg).
-    * eapply closed_sub_mono; eassumption.
+    * exact Hs.
   - apply IHt. exact H.
   - destruct (nth_error G n); [|exact H]. destruct p.
     destruct H as [Hcnt [Hlen [Hfa Hs]]]. repeat split.
@@ -372,159 +371,17 @@ Proof.
   - discriminate Hhead.
   - destruct g.
     * (*gsucc*) discriminate.
-    * (*gunify*)
-      destruct Ht as [Hcnt [Htcg Htcs]].
+    * (*gunify*) 
+      destruct Ht as [Htcg Htcs].
       destruct (unify t t0 (st_sub s)) eqn:E.
-      + injection Hhead as <-. exists c. simpl.
-        refine (conj _ (conj I _)).
+      + injection Hhead as <-. exists (st_cnt s). simpl. repeat split.
         -- lia.
-        -- eapply unify_closed.
-           ** simpl in Htcg. exact (proj1 Htcg).
-           ** simpl in Htcg. exact (proj2 Htcg).
-           ** exact Htcs.
-           ** exact E.
-      + injection Hhead as <-. exists c. exact I.
-    * (*grelcall*)
-      destruct Ht as [Hcnt [Htcg Htcs]].
-      injection Hhead as <-. exists c. simpl.
-      destruct (nth_error G n) eqn:E.
-      + destruct p. repeat split.
-        -- lia.
-        -- simpl in Htcg. rewrite E in Htcg. exact (proj1 Htcg).
-        -- eapply Forall_impl.
-           ** intros a Ha. exact Ha.
-           ** simpl in Htcg. rewrite E in Htcg. exact (proj2 Htcg).
-        -- exact Htcs.
-      + simpl in Htcg. rewrite E in Htcg. exact Htcg.
-    * (*gdisj*)
-      destruct Ht as [Hcnt [Htcg Htcs]].
-      injection Hhead as <-. exists c. simpl. repeat split.
-      + lia.
-      + simpl in Htcg. exact (proj1 Htcg).
-      + exact Htcs.
-      + lia.
-      + simpl in Htcg. exact (proj2 Htcg).
-      + exact Htcs.
-    * (*gconj*)
-      destruct Ht as [Hcnt [Htcg Htcs]].
-      injection Hhead as <-. exists c. simpl. split.
-      + repeat split.
-        -- exact Hcnt.
-        -- simpl in Htcg. exact (proj1 Htcg).
-        -- exact Htcs.
-      + simpl in Htcg. exact (proj2 Htcg).
-    * (*gfresh*)
-      destruct Ht as [Hcnt [Htcg Htcs]].
-      injection Hhead as <-. exists (c + n). simpl. repeat split.
-      + lia.
-      + apply open_closed.
-        -- rewrite length_map, length_seq. simpl in Htcg. exact Htcg.
-        -- apply Forall_forall. intros x Hin.
-           apply in_map_iff in Hin. destruct Hin as [i [<- Hi]].
-           apply in_seq in Hi. simpl. lia.
-      + exact (closed_sub_mono c (c + n) _ (Nat.le_add_r c n) Htcs).
-  - (* tdelay *)
-    discriminate Hhead.
-  - (* tproceed *)
-    destruct (nth_error G n) eqn:E; [|exact (False_ind _ Ht)].
-    destruct p as [arity body].
-    destruct Ht as [Hcnt [Hlen [Hfa Htcs]]].
-    destruct (Nat.eqb (length l) arity) eqn:Eqa; [|discriminate Hhead].
-    injection Hhead as <-. exists c.
-    apply Nat.eqb_eq in Eqa.
-    simpl. refine (conj Hcnt (conj _ Htcs)).
-    apply open_closed.
-    + rewrite Hlen.
-      exact (closed_goal_mono G arity arity 0 c _ (Nat.le_refl arity) (Nat.le_0_l c) (HG n arity body E)).
-    + exact Hfa.
-  - (* tconj: tconj t g_outer; remaining cases after discriminate: tfail, tgoal, tdelay, tdisjL, tdisjR *)
-    destruct t as [| gc sc | td | rp lp sp | tci gci | tl1 tl2 | tr1 tr2];
-      simpl in Hhead; try discriminate Hhead.
-    * (* PruneConj: tconj tfail g_outer *)
-      injection Hhead as <-. exists c. exact I.
-    * (* SuccConj: tconj (tgoal gc sc) g_outer — any gc *)
-      injection Hhead as <-.
-      destruct Ht as [[Hcnt [_ Htcs]] Hg].
-      exists c. split; [exact Hcnt | split; [exact Hg | exact Htcs]].
-    * (* DelayConj: tconj (tdelay td) g_outer *)
-      injection Hhead as <-.
-      destruct Ht as [Htct Hg].
-      exists c. split; [exact Htct | exact Hg].
-    * (* LeftAnsConj: tconj (tdisjL tl1 tl2) g_outer *)
-      destruct tl1 as [| gl1 sl1 | | | | tll1 tlr1 | trl1 trr1];
-        simpl in Hhead; try discriminate Hhead.
-      (* only tl1 = tgoal gl1 sl1 survives *)
-      injection Hhead as <-.
-      destruct Ht as [[Htct1 Htct2] Hg].
-      exists c. split.
-      + split; [exact Htct1 | exact Hg].
-      + split; [exact Htct2 | exact Hg].
-    * (* RightAnsConj: tconj (tdisjR tr1 tr2) g_outer *)
-      destruct tr2 as [| gr2 sr2 | | | | tll2 tlr2 | trl2 trr2];
-        simpl in Hhead; try discriminate Hhead.
-      (* only tr2 = tgoal gr2 sr2 survives *)
-      injection Hhead as <-.
-      destruct Ht as [[Htct1 Htct2] Hg].
-      exists c. split.
-      + split; [exact Htct1 | exact Hg].
-      + split; [exact Htct2 | exact Hg].
-  - (* tdisjL: tdisjL t1 t2; remaining: tfail, tdelay, tdisjL, tdisjR *)
-    destruct t1 as [| g1 s1 | td1 | | | tl1a tl1b | tr1a tr1b];
-      simpl in Hhead; try discriminate Hhead.
-    * (* PruneLeft: tdisjL tfail t2 *)
-      injection Hhead as <-. exists c. exact (proj2 Ht).
-    * (* DelayLeft: tdisjL (tdelay td1) t2 *)
-      injection Hhead as <-. exists c.
-      destruct Ht as [Htl Htr]. split; [exact Htl | exact Htr].
-    * (* AssocLeftLeft: tdisjL (tdisjL tl1a tl1b) t2 *)
-      destruct tl1a as [| gll sll | | | | | ];
-        simpl in Hhead; try discriminate Hhead.
-      (* only tl1a = tgoal gll sll survives *)
-      injection Hhead as <-.
-      destruct Ht as [[Htll Htlr] Htr].
-      exists c. split; [exact Htll | split; [exact Htlr | exact Htr]].
-    * (* AssocLeftRight: tdisjL (tdisjR tr1a tr1b) t2 *)
-      destruct tr1b as [| grl srl | | | | | ];
-        simpl in Hhead; try discriminate Hhead.
-      (* only tr1b = tgoal grl srl survives *)
-      injection Hhead as <-.
-      destruct Ht as [[Htll Htlr] Htr].
-      exists c. split; [split; [exact Htll | exact Htr] | exact Htlr].
-  - (* tdisjR: tdisjR t1 t2; remaining: tfail, tdelay, tdisjL, tdisjR *)
-    destruct t2 as [| g2 s2 | td2 | | | tl2a tl2b | tr2a tr2b];
-      simpl in Hhead; try discriminate Hhead.
-    * (* PruneRight: tdisjR t1 tfail *)
-      injection Hhead as <-. exists c. exact (proj1 Ht).
-    * (* DelayRight: tdisjR t1 (tdelay td2) → tdelay (tdisjL t1 td2) *)
-      injection Hhead as <-.
-      destruct Ht as [Htl Htr].
-      exists c. split; [exact Htl | exact Htr].
-    * (* AssocRightLeft: tdisjR t1 (tdisjL tl2a tl2b) *)
-      destruct tl2a as [| grl2 srl2 | | | | | ];
-        simpl in Hhead; try discriminate Hhead.
-      (* only tl2a = tgoal grl2 srl2 survives *)
-      injection Hhead as <-.
-      destruct Ht as [Htl [Htrl Htrr]].
-      exists c. split; [exact Htrl | split; [exact Htl | exact Htrr]].
-    * (* AssocRightRight: tdisjR t1 (tdisjR tr2a tr2b) *)
-      destruct tr2b as [| grr2 srr2 | | | | | ];
-        simpl in Hhead; try discriminate Hhead.
-      (* only tr2b = tgoal grr2 srr2 survives *)
-      injection Hhead as <-.
-      destruct Ht as [Htl [Htrl Htrr]].
-      exists c. split; [split; [exact Htl | exact Htrl] | exact Htrr].
-Qed.
+        -- destruct Htcs as [[H1 H2] H3].
 
-(* step_closed needs to know that every tgoal state inside the tree
-   satisfies closed_sub (st_cnt s) (st_sub s), not just closed_sub c.
-   This tighter bound is needed when a state is promoted to the answer
-   list via S_promoteL / S_promoteR.  We admit it here as a design
-   obligation: either strengthen closed_tree or prove it separately. *)
+
 Lemma tgoal_sub_wf : forall G c g s,
   closed_tree G c (tgoal g s) ->
   closed_sub (st_cnt s) (st_sub s).
-Proof.
-Admitted.
 
 Lemma step_closed : forall G c e e',
   closed_env G ->
@@ -534,33 +391,6 @@ Lemma step_closed : forall G c e e',
   exists c',
     closed_tree G c' (snd e') /\
     Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e').
-Proof.
-  intros G c e e' HG Ht Hans Hstep.
-  destruct Hstep as [ans E r r' Hhead | ans td | ans s t | ans s t].
-  - (* S_ctx: (ans, plug E r) --> (ans, plug E r') via head G r = Some r' *)
-    simpl in Ht.
-    pose proof (plug_closed_inv G c E r Ht) as Hr.
-    destruct (head_closed G c r r' HG Hr Hhead) as [c'' Hr'].
-    exists (Nat.max c c''). simpl. split.
-    + apply (plug_closed G (Nat.max c c'') E r r').
-      * apply closed_tree_mono with (c := c); [lia | exact Ht].
-      * apply closed_tree_mono with (c := c''); [lia | exact Hr'].
-    + exact Hans.
-  - (* S_delay: (ans, tdelay td) --> (ans, td) *)
-    simpl in *. exists c. split; [exact Ht | exact Hans].
-  - (* S_promoteL: (ans, tdisjL (tgoal gsucc s) t) --> (ans ++ [s], t) *)
-    simpl in Ht. destruct Ht as [Hgoal Htree].
-    exists c. simpl. split.
-    + exact Htree.
-    + apply Forall_app. split; [exact Hans |].
-      constructor; [exact (tgoal_sub_wf G c gsucc s Hgoal) | constructor].
-  - (* S_promoteR: (ans, tdisjR t (tgoal gsucc s)) --> (ans ++ [s], t) *)
-    simpl in Ht. destruct Ht as [Htree Hgoal].
-    exists c. simpl. split.
-    + exact Htree.
-    + apply Forall_app. split; [exact Hans |].
-      constructor; [exact (tgoal_sub_wf G c gsucc s Hgoal) | constructor].
-Qed.
 
 Lemma multi_closed : forall G e e',
   multi G e e' ->
@@ -571,11 +401,3 @@ Lemma multi_closed : forall G e e',
     exists c',
       closed_tree G c' (snd e') /\
       Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e').
-Proof.
-  intros G e e' Hmulti.
-  induction Hmulti as [e1 | e1 e2 e3 Hstep _ IH].
-  - intros c HG Ht Hans. exists c. split; [exact Ht | exact Hans].
-  - intros c HG Ht Hans.
-    destruct (step_closed G c e1 e2 HG Ht Hans Hstep) as [c'' [Ht'' Hans'']].
-    exact (IH c'' HG Ht'' Hans'').
-Qed.
