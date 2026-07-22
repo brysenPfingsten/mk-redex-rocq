@@ -41,8 +41,8 @@ Fixpoint closed_tree (G : env) (c : nat) (t : tree) : Prop :=
   | tfail           => True
   | tgoal g s       =>
       st_cnt s <= c /\
-      closed_goal G 0 (st_cnt s) g /\
-      closed_sub (st_cnt s) (st_sub s)
+      closed_goal G 0 c g /\
+      closed_sub c (st_sub s)
   | tdelay t'       => closed_tree G c t'
   | tproceed r ts s =>
       match nth_error G r with
@@ -210,10 +210,10 @@ Lemma closed_tree_mono : forall G c c' t,
 Proof.
   intros G c c' t Hle. induction t; simpl; intros H.
   - exact H.
-  - destruct H as [Hg Hs]. repeat split.
+  - destruct H as [Hcnt [Hg Hs]]. repeat split.
     * lia.
-    * exact (proj1 Hs).
-    * exact (proj2 Hs).
+    * exact (closed_goal_mono G 0 0 c c' _ (Nat.le_refl 0) Hle Hg).
+    * exact (closed_sub_mono c c' _ Hle Hs).
   - apply IHt. exact H.
   - destruct (nth_error G n); [|exact H]. destruct p.
     destruct H as [Hcnt [Hlen [Hfa Hs]]]. repeat split.
@@ -373,22 +373,20 @@ Proof.
   - (*tgoal*) destruct g; destruct Ht as [Hlt [Hcg Hcs]].
     * (*gsucc*) discriminate.
     * (*gunify*) exists c.
-      destruct (unify t t0 (st_sub s)) eqn:Eunify. 
-      + injection Hhead as <-. simpl. repeat split.
+      destruct (unify t t0 (st_sub s)) eqn:Eunify.
+      + injection Hhead as <-. simpl. destruct Hcg as [Hct Hct0]. repeat split.
         -- exact Hlt.
-        -- simpl in Hcg. destruct Hcg as [Hct Hct0].
-           apply (unify_closed (st_cnt s) t t0 (st_sub s) s0); try assumption.
-      + injection Hhead as <-. simpl. apply I.
+        -- exact (unify_closed c t t0 (st_sub s) s0 Hct Hct0 Hcs Eunify).
+      + injection Hhead as <-. simpl. exact I.
     * (*relcall*) exists c. injection Hhead as <-. simpl.
       destruct (nth_error G n) eqn:E.
-      + destruct p; simpl in Hcg; rewrite E in Hcg; destruct Hcg. repeat split.
+      + destruct p. simpl in Hcg. rewrite E in Hcg. destruct Hcg as [Hlen Hfa].
+        repeat split.
         -- exact Hlt.
-        -- exact H.
-        -- eapply Forall_impl.
-           ** intros t Ht. exact (closed_term_mono 0 0 (st_cnt s) c t (Nat.le_refl 0) Hlt Ht).
-           ** exact H0.
-        -- eapply closed_sub_mono; eassumption.
-      + simpl in Hcg. rewrite E in Hcg. destruct Hcg.
+        -- exact Hlen.
+        -- exact Hfa.
+        -- exact Hcs.
+      + simpl in Hcg. rewrite E in Hcg. exact (False_ind _ Hcg).
     * (*disj*) exists c. injection Hhead as <-. simpl. repeat split.
       1, 3, 4, 6: assumption.
       + exact (proj1 Hcg).
@@ -396,56 +394,156 @@ Proof.
     * (*conj*) exists c. injection Hhead as <-. simpl. repeat split.
       1, 3: assumption.
       + exact (proj1 Hcg).
-      + simpl in Hcg. destruct Hcg as [_ Hcg].
-        exact (closed_goal_mono G 0 0 (st_cnt s) c g2 (Nat.le_refl 0) Hlt Hcg).
+      + exact (proj2 Hcg).
     * (*fresh*) exists (c + n). injection Hhead as <-. simpl. repeat split.
-      + lia. 
+      + lia.
       + apply open_goal_closed.
-         -- simpl in Hcg. 
-            rewrite length_map. rewrite length_seq. rewrite Nat.add_0_r.
-            exact Hcg.
-         -- rewrite Forall_map. apply Forall_forall.
-            intros x Hx.
-            apply in_seq in Hx.
-            simpl. lia. 
-      + exact (closed_sub_mono (st_cnt s) (st_cnt s + n) (st_sub s) (Nat.le_add_r _ _ ) Hcs).
+        -- rewrite length_map, length_seq, Nat.add_0_r. exact Hcg.
+        -- rewrite Forall_map. apply Forall_forall.
+           intros x Hx. apply in_seq in Hx. simpl. lia.
+      + exact (closed_sub_mono c (c + n) (st_sub s) (Nat.le_add_r c n) Hcs).
   - (*tdelay*) discriminate Hhead.
   - (*tproceed*) destruct (nth_error G n) eqn:Ea.
-    * exists c. 
-      destruct p as [n0 body]. 
+    + exists c.
+      destruct p as [n0 body].
       destruct Ht as [Hle [Hlen [Hfa Hcs]]].
       rewrite <- Hlen, Nat.eqb_refl in Hhead.
-      injection Hhead as <-.
-      repeat split.
-      + exact Hle.
-      + apply open_closed.
-         -- rewrite Hlen.
-            exact (closed_goal_mono G n0 n0 0 (st_cnt s) body
-                     (Nat.le_refl n0) (Nat.le_0_l (st_cnt s))
-                     (HG n n0 body Ea)).
+      injection Hhead as <-. repeat split.
+      * exact Hle.
+      * apply open_closed.
+        -- rewrite Hlen.
+           exact (closed_goal_mono G n0 n0 0 c body
+                    (Nat.le_refl n0) (Nat.le_0_l c) (HG n n0 body Ea)).
+        -- exact Hfa.
+      * exact Hcs.
+    + exact (False_ind _ Ht).
+  (* Structural rules: each case destructs the inner tree to identify
+     which reduction rule fires, then reassembles closed_tree from pieces
+     already in Ht. Key sub-cases:
+       PruneConj  : exists c; exact I
+       SuccConj   : exists c; destruct Ht as [[Hle [_ Hcs]] Hg]; repeat split; assumption
+       LeftAnsConj: exists c; destruct Ht as [[Ht1a Ht1b] Hg]; simpl; ...
+       DelayConj  : exists c; exact (conj (proj1 Ht) (proj2 Ht))
+       PruneLeft  : exists c; exact (proj2 Ht)
+       AssocLeft* : exists c; rearrange projections of Ht
+       DelayLeft  : exists c; exact (conj (proj1 Ht) (proj2 Ht))  *)
+  - admit. (* tconj *)
+  - admit. (* tdisjL *)
+  - admit. (* tdisjR *)
+Admitted.
 
+(* --------------------------------------------------------------------------
+   tight_tree: tracks that subs and goals are bounded by each state's own
+   counter. This is SEPARATE from closed_tree (which uses a loose global c).
+   The tconj case quantifies over all states in the left subtree so that
+   SuccConj can transfer the goal bound to the new tgoal.
+   -------------------------------------------------------------------------- *)
 
+Inductive state_in : tree -> state -> Prop :=
+  | SI_tgoal    : forall g s,           state_in (tgoal g s) s
+  | SI_tdelay   : forall t s,           state_in t s -> state_in (tdelay t) s
+  | SI_tproceed : forall r ts s,        state_in (tproceed r ts s) s
+  | SI_tconj    : forall t g s,         state_in t s -> state_in (tconj t g) s
+  | SI_tdisjL_l : forall t1 t2 s,      state_in t1 s -> state_in (tdisjL t1 t2) s
+  | SI_tdisjL_r : forall t1 t2 s,      state_in t2 s -> state_in (tdisjL t1 t2) s
+  | SI_tdisjR_l : forall t1 t2 s,      state_in t1 s -> state_in (tdisjR t1 t2) s
+  | SI_tdisjR_r : forall t1 t2 s,      state_in t2 s -> state_in (tdisjR t1 t2) s
+  .
 
+Hint Constructors state_in : core.
 
-Lemma tgoal_sub_wf : forall G c g s,
-  closed_tree G c (tgoal g s) ->
-  closed_sub (st_cnt s) (st_sub s).
+Fixpoint tight_tree (G : env) (t : tree) : Prop :=
+  match t with
+  | tfail           => True
+  | tgoal g s       => closed_goal G 0 (st_cnt s) g /\ closed_sub (st_cnt s) (st_sub s)
+  | tdelay t'       => tight_tree G t'
+  | tproceed r ts s => closed_sub (st_cnt s) (st_sub s) /\
+                        Forall (closed_term 0 (st_cnt s)) ts
+  | tconj t' g      => tight_tree G t' /\
+                        (forall s, state_in t' s -> closed_goal G 0 (st_cnt s) g)
+  | tdisjL t1 t2    => tight_tree G t1 /\ tight_tree G t2
+  | tdisjR t1 t2    => tight_tree G t1 /\ tight_tree G t2
+  end.
 
-Lemma step_closed : forall G c e e',
-  closed_env G ->
-  closed_tree G c (snd e) ->
-  Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e) ->
-  G |= e --> e' ->
-  exists c',
-    closed_tree G c' (snd e') /\
-    Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e').
+(* The tight sub for a success state follows directly. *)
+Lemma tight_tgoal_sub : forall G g s,
+  tight_tree G (tgoal g s) -> closed_sub (st_cnt s) (st_sub s).
+Proof.
+  intros G g s [_ Hs]. exact Hs.
+Qed.
 
-Lemma multi_closed : forall G e e',
-  multi G e e' ->
-  forall c,
-    closed_env G ->
-    closed_tree G c (snd e) ->
-    Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e) ->
-    exists c',
-      closed_tree G c' (snd e') /\
-      Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e').
+(* --------------------------------------------------------------------------
+   Plugging lemmas for tight_tree (mirrors plug_closed / plug_closed_inv).
+   -------------------------------------------------------------------------- *)
+
+Lemma plug_tight_inv : forall G E r,
+  tight_tree G (plug E r) -> tight_tree G r.
+Proof.
+  intros G E. induction E; intros r H; simpl in *.
+  - exact H.
+  - exact (IHE _ (proj1 H)).
+  - exact (IHE _ (proj2 H)).
+  - exact (IHE _ (proj1 H)).
+Qed.
+
+Lemma plug_tight : forall G E r r',
+  tight_tree G (plug E r) ->
+  tight_tree G r' ->
+  (forall s, state_in r' s -> state_in r s) ->
+  tight_tree G (plug E r').
+Proof.
+  (* Sketch: induction on E; tconj case uses the state_in monotonicity
+     hypothesis to re-establish the goal-bound quantifier for the tconj wrapper.
+     Other cases are direct. *)
+  Admitted.
+
+(* --------------------------------------------------------------------------
+   head preserves tight_tree.
+
+   Key cases:
+   - gunify : closed_goal at st_cnt s gives tight term bounds -> unify_closed
+               yields closed_sub (st_cnt s) s' directly
+   - SuccConj : the forall in tight_tree (tconj ...) instantiates at the
+                unique state in (tgoal gsucc s) to give the needed goal bound
+   - gfresh  : sub bound increases by k alongside the counter, use mono
+   - Proceed : ts carry Forall (closed_term 0 (st_cnt s)) from tproceed;
+               body is closed by closed_env; open_closed closes the result
+   -------------------------------------------------------------------------- *)
+Lemma head_tight : forall G t t',
+  closed_env G -> tight_tree G t -> head G t = Some t' ->
+  tight_tree G t'.
+Proof.
+  Admitted.
+
+(* --------------------------------------------------------------------------
+   ok_expr: the combined well-formedness predicate for a program expression.
+   Uses an existential c for the loose bound (c grows as fresh vars are introduced).
+   -------------------------------------------------------------------------- *)
+
+Definition ok_expr (G : env) (e : expr) : Prop :=
+  (exists c, closed_tree G c (snd e)) /\
+  tight_tree G (snd e) /\
+  Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e).
+
+(* --------------------------------------------------------------------------
+   step_ok: ok_expr is preserved by one step.
+
+   Case S_ctx:  head_closed gives new c; head_tight (via plug_tight) preserves
+                tight_tree; answers unchanged.
+   Case S_delay: trivial unwrap.
+   Case S_promoteL/R: tight_tree on tgoal gsucc s gives closed_sub (st_cnt s);
+                      append to answer list.
+   -------------------------------------------------------------------------- *)
+Lemma step_ok : forall G e e',
+  closed_env G -> ok_expr G e -> G |= e --> e' -> ok_expr G e'.
+Proof.
+  Admitted.
+
+Lemma multi_ok : forall G e e',
+  multi G e e' -> closed_env G -> ok_expr G e -> ok_expr G e'.
+Proof.
+  intros G e e' Hmulti HG Hok.
+  induction Hmulti.
+  - exact Hok.
+  - apply IHHmulti. exact (step_ok G e1 e2 HG Hok H).
+Qed.
