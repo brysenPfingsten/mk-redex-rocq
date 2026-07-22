@@ -41,7 +41,7 @@ Fixpoint closed_tree (G : env) (c : nat) (t : tree) : Prop :=
   | tfail           => True
   | tgoal g s       =>
       st_cnt s <= c /\
-      closed_goal G 0 c g /\
+      closed_goal G 0 (st_cnt s) g /\
       closed_sub (st_cnt s) (st_sub s)
   | tdelay t'       => closed_tree G c t'
   | tproceed r ts s =>
@@ -211,8 +211,9 @@ Proof.
   intros G c c' t Hle. induction t; simpl; intros H.
   - exact H.
   - destruct H as [Hg Hs]. repeat split.
-    * exact (closed_goal_mono G 0 0 c c' _ (Nat.le_refl 0) Hle Hg).
-    * exact Hs.
+    * lia.
+    * exact (proj1 Hs).
+    * exact (proj2 Hs).
   - apply IHt. exact H.
   - destruct (nth_error G n); [|exact H]. destruct p.
     destruct H as [Hcnt [Hlen [Hfa Hs]]]. repeat split.
@@ -368,15 +369,62 @@ Lemma head_closed : forall G c t t',
 Proof.
   intros G c t t' HG Ht Hhead.
   destruct t; simpl in *.
-  - discriminate Hhead.
-  - destruct g.
+  - (*tfail*) discriminate Hhead.
+  - (*tgoal*) destruct g; destruct Ht as [Hlt [Hcg Hcs]].
     * (*gsucc*) discriminate.
-    * (*gunify*) 
-      destruct Ht as [Htcg Htcs].
-      destruct (unify t t0 (st_sub s)) eqn:E.
-      + injection Hhead as <-. exists (st_cnt s). simpl. repeat split.
-        -- lia.
-        -- destruct Htcs as [[H1 H2] H3].
+    * (*gunify*) exists c.
+      destruct (unify t t0 (st_sub s)) eqn:Eunify. 
+      + injection Hhead as <-. simpl. repeat split.
+        -- exact Hlt.
+        -- simpl in Hcg. destruct Hcg as [Hct Hct0].
+           apply (unify_closed (st_cnt s) t t0 (st_sub s) s0); try assumption.
+      + injection Hhead as <-. simpl. apply I.
+    * (*relcall*) exists c. injection Hhead as <-. simpl.
+      destruct (nth_error G n) eqn:E.
+      + destruct p; simpl in Hcg; rewrite E in Hcg; destruct Hcg. repeat split.
+        -- exact Hlt.
+        -- exact H.
+        -- eapply Forall_impl.
+           ** intros t Ht. exact (closed_term_mono 0 0 (st_cnt s) c t (Nat.le_refl 0) Hlt Ht).
+           ** exact H0.
+        -- eapply closed_sub_mono; eassumption.
+      + simpl in Hcg. rewrite E in Hcg. destruct Hcg.
+    * (*disj*) exists c. injection Hhead as <-. simpl. repeat split.
+      1, 3, 4, 6: assumption.
+      + exact (proj1 Hcg).
+      + exact (proj2 Hcg).
+    * (*conj*) exists c. injection Hhead as <-. simpl. repeat split.
+      1, 3: assumption.
+      + exact (proj1 Hcg).
+      + simpl in Hcg. destruct Hcg as [_ Hcg].
+        exact (closed_goal_mono G 0 0 (st_cnt s) c g2 (Nat.le_refl 0) Hlt Hcg).
+    * (*fresh*) exists (c + n). injection Hhead as <-. simpl. repeat split.
+      + lia. 
+      + apply open_goal_closed.
+         -- simpl in Hcg. 
+            rewrite length_map. rewrite length_seq. rewrite Nat.add_0_r.
+            exact Hcg.
+         -- rewrite Forall_map. apply Forall_forall.
+            intros x Hx.
+            apply in_seq in Hx.
+            simpl. lia. 
+      + exact (closed_sub_mono (st_cnt s) (st_cnt s + n) (st_sub s) (Nat.le_add_r _ _ ) Hcs).
+  - (*tdelay*) discriminate Hhead.
+  - (*tproceed*) destruct (nth_error G n) eqn:Ea.
+    * exists c. 
+      destruct p as [n0 body]. 
+      destruct Ht as [Hle [Hlen [Hfa Hcs]]].
+      rewrite <- Hlen, Nat.eqb_refl in Hhead.
+      injection Hhead as <-.
+      repeat split.
+      + exact Hle.
+      + apply open_closed.
+         -- rewrite Hlen.
+            exact (closed_goal_mono G n0 n0 0 (st_cnt s) body
+                     (Nat.le_refl n0) (Nat.le_0_l (st_cnt s))
+                     (HG n n0 body Ea)).
+
+
 
 
 Lemma tgoal_sub_wf : forall G c g s,
