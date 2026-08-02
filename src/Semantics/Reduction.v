@@ -36,15 +36,15 @@ Definition head (G : env) (t : tree) : option tree :=
   (*PruneConj*)
   | tconj tfail _ => Some tfail
   (*SuccConj*)
-  | tconj (tgoal tsucc s) g => Some (tgoal g s)
+  | tconj (tgoal gsucc s) g => Some (tgoal g s)
   (*LeftAnsConj*)
-  | tconj (tdisjL (tgoal tsucc s) t) g => 
-      Some (tdisjL (tconj (tgoal tsucc s) g)
+  | tconj (tdisjL (tgoal gsucc s) t) g =>
+      Some (tdisjL (tconj (tgoal gsucc s) g)
                    (tconj t g))
   (*RightAnsConj*)
-  | tconj (tdisjR t (tgoal tsucc s)) g =>
+  | tconj (tdisjR t (tgoal gsucc s)) g =>
       Some (tdisjR (tconj t g)
-                   (tconj (tgoal tsucc s) g))
+                   (tconj (tgoal gsucc s) g))
   (*DelayConj*)
   | tconj (tdelay t) g => Some (tdelay (tconj t g))
   (*PruneLeft*)
@@ -52,17 +52,17 @@ Definition head (G : env) (t : tree) : option tree :=
   (*PruneRight*)
   | tdisjR r tfail => Some r
   (*AssocLeftLeft*)
-  | tdisjL (tdisjL (tgoal tsucc s) r) r2 =>
-      Some (tdisjL (tgoal tsucc s) (tdisjL r r2))
+  | tdisjL (tdisjL (tgoal gsucc s) r) r2 =>
+      Some (tdisjL (tgoal gsucc s) (tdisjL r r2))
   (*AssocLeftRight*)
-  | tdisjL (tdisjR r (tgoal tsucc s)) r2 =>
-      Some (tdisjR (tdisjL r r2) (tgoal tsucc s))
+  | tdisjL (tdisjR r (tgoal gsucc s)) r2 =>
+      Some (tdisjR (tdisjL r r2) (tgoal gsucc s))
   (*AssocRightLeft*)
-  | tdisjR r2 (tdisjL (tgoal tsucc s) r) =>
-      Some (tdisjL (tgoal tsucc s) (tdisjR r2 r))
+  | tdisjR r2 (tdisjL (tgoal gsucc s) r) =>
+      Some (tdisjL (tgoal gsucc s) (tdisjR r2 r))
   (*AssocRightRight*)
-  | tdisjR r2 (tdisjR r (tgoal tsucc s)) =>
-      Some (tdisjR (tdisjR r2 r) (tgoal tsucc s))
+  | tdisjR r2 (tdisjR r (tgoal gsucc s)) =>
+      Some (tdisjR (tdisjR r2 r) (tgoal gsucc s))
   (*DelayLeft*)
   | tdisjL (tdelay r1) r2 => Some (tdelay (tdisjR r1 r2))
   (*DelayRight*)

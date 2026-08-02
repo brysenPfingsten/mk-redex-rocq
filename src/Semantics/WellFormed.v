@@ -417,37 +417,39 @@ Proof.
         -- exact Hfa.
       * exact Hcs.
     + destruct Ht.
-  - exists c. destruct t.
+  - exists c. destruct t; simpl in Hhead.
       * injection Hhead as <-. exact (proj1 Ht).
-      * injection Hhead as <-. destruct Ht as [Hct Hcg].
-        simpl in *. destruct Hct as [Hle [_ Hcs]]. repeat split; assumption.
+      * destruct g0; simpl in Hhead; 
+        try discriminate Hhead; try injection Hhead as <-; simpl in *; tauto.
       * injection Hhead as <-. simpl in *. exact Ht.
       * discriminate Hhead.
       * discriminate Hhead.
-      * destruct t1; try inversion Hhead. simpl in *. 
-        destruct Ht. destruct H as [[Hle [Hcg Hcs]] H4]. 
-        repeat split; assumption.
-      * destruct t2; try inversion Hhead. simpl in *. 
-        destruct Ht as [[Hct1 [Hle [Hcg0 Hcs]]] Hcg].
-        repeat split; assumption.
-  - exists c. destruct t1; try inversion Hhead.
-      * rewrite <- H0. exact (proj2 Ht).
+      * destruct t1; simpl in Hhead; try discriminate Hhead.
+        destruct g0; simpl in Hhead; try discriminate Hhead;
+        injection Hhead as <-; simpl in *; tauto.
+      * destruct t2; simpl in Hhead; try discriminate Hhead.
+        destruct g0; simpl in Hhead; try discriminate Hhead;
+        injection Hhead as <-; simpl in *; try tauto.
+  - exists c. destruct t1; simpl in Hhead;
+      try injection Hhead as <-; try discriminate Hhead.
+      * exact (proj2 Ht).
       * simpl in *. exact Ht.
-      * destruct t1_1; try inversion Hhead.
-        simpl in *. destruct Ht as [[[Hle [Hcg Hcs]] Hct12] Hct2].
-        repeat split; try assumption.
-      * destruct t1_2; try inversion Hhead.
-        simpl in *. destruct Ht as [[Hct1_1 [Hle [Hcg Hcs]]] Hct2].
-        repeat split; assumption.
-  - exists c. destruct t2; try inversion Hhead; try injection Hhead as <-.
+      * destruct t1_1; simpl in Hhead; try discriminate Hhead.
+        destruct g; simpl in Hhead; try discriminate Hhead;
+        injection Hhead as <-; simpl in *; tauto.
+      * destruct t1_2; simpl in Hhead; try discriminate Hhead.
+        destruct g; simpl in Hhead; try discriminate Hhead;
+        injection Hhead as <-; simpl in *; tauto.
+  - exists c. destruct t2; simpl in Hhead;
+      try injection Hhead as <-; try discriminate Hhead.
       * exact (proj1 Ht).
       * simpl in *. exact Ht.
-      * destruct t2_1; try inversion Hhead. simpl in *.
-        destruct Ht as [Hct1 [[Hle [Hcg Hcs]] Hct2]].
-        repeat split; assumption.
-      * destruct t2_2; try inversion Hhead. simpl in *.
-        destruct Ht as [Hct1 [Hct2_1 [Hle [Hcg Hcs]]]].
-        repeat split; assumption.
+      * destruct t2_1; simpl in Hhead; try discriminate Hhead.
+        destruct g; simpl in Hhead; try discriminate Hhead;
+        injection Hhead as <-; simpl in *; tauto.
+      * destruct t2_2; simpl in Hhead; try discriminate Hhead.
+        destruct g; simpl in Hhead; try discriminate Hhead;
+        injection Hhead as <-; simpl in *; tauto.
 Qed.
 
 
@@ -578,50 +580,58 @@ Proof.
     * exact Hcs.
   - destruct t; try injection Hhead as <-; try discriminate Hhead; simpl in *.
     * apply I.
-    * destruct Htt as [[Hcg0 Hcs] Hforall]. simpl. split.
-      + apply Hforall. exact (SI_tgoal g0 s).
+    * destruct g0; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-.
+      destruct Htt as [[Hcg0 Hcs] Hforall]. simpl. split.
+      + apply Hforall. exact (SI_tgoal gsucc s).
       + exact Hcs.
     * destruct Htt as [Htt Hforall]. simpl. split.
       + exact Htt.
       + intros s0 Hsin. apply Hforall. exact (SI_tdelay t s0 Hsin).
-    * destruct t1; try discriminate Hhead.
+    * destruct t1; simpl in Hhead; try discriminate Hhead.
+      destruct g0; simpl in Hhead; try discriminate Hhead.
       injection Hhead as <-.
       destruct Htt as [[[Hcg0 Hcs] Htt2] Hforall]. simpl in *. repeat split.
-      + exact Hcg0.
       + exact Hcs.
-      + intros s0 Hsin. inversion Hsin. subst. 
-        apply Hforall. exact (SI_tdisjL_l (tgoal g0 s0) t2 s0 (SI_tgoal g0 s0)).
+      + intros s0 Hsin. inversion Hsin. subst.
+        apply Hforall. apply SI_tdisjL_l. apply SI_tgoal.
       + exact Htt2.
-      + intros s0 Hsin. apply Hforall.
-        exact (SI_tdisjL_r (tgoal g0 s) t2 s0 Hsin).
-    * destruct t2; try injection Hhead as <-; try discriminate Hhead; simpl in *.
-      destruct Htt as [[Htt1 [Hcg0 Hcs]] Hforall]. repeat split.
+      + intros s0 Hsin. apply Hforall. apply SI_tdisjL_r. exact Hsin.
+    * destruct t2; simpl in Hhead; try discriminate Hhead.
+      destruct g0; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-. simpl in *.
+      destruct Htt as [[Htt1 [Hcg0 Hcs]] Hforall]. simpl in *. repeat split.
       + exact Htt1.
-      + intros s0 Hsin. apply Hforall. 
+      + intros s0 Hsin. apply Hforall.
         exact (SI_tdisjR_l _ _ _ Hsin).
-      + exact Hcg0.
       + exact Hcs.
       + intros s0 Hsin. apply Hforall.
         exact (SI_tdisjR_r _ _ _ Hsin).
-  - destruct t1; try discriminate Hhead; try injection Hhead as <-; simpl in *.
+  - destruct t1; simpl in Hhead; try discriminate Hhead;
+      try injection Hhead as <-; simpl in *.
     * exact (proj2 Htt).
     * exact Htt.
-    * destruct t1_1; try discriminate Hhead. 
-      injection Hhead as <-. simpl in *. 
+    * destruct t1_1; simpl in Hhead; try discriminate Hhead.
+      destruct g; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-. simpl in *.
       destruct Htt as [[[Hcg Hcs] Htt1_2] Htt2].
       repeat split; assumption.
-    * destruct t1_2; try discriminate Hhead.
+    * destruct t1_2; simpl in Hhead; try discriminate Hhead.
+      destruct g; simpl in Hhead; try discriminate Hhead.
       injection Hhead as <-. simpl in *.
       destruct Htt as [[Htt1_1 [Hcg Hcs]] Htt2].
       repeat split; assumption.
-  - destruct t2; try discriminate Hhead; try injection Hhead as <-; simpl in *.
+  - destruct t2; simpl in Hhead; try discriminate Hhead;
+      try injection Hhead as <-; simpl in *.
     * exact (proj1 Htt).
     * exact Htt.
-    * destruct t2_1; try discriminate Hhead.
+    * destruct t2_1; simpl in Hhead; try discriminate Hhead.
+      destruct g; simpl in Hhead; try discriminate Hhead.
       injection Hhead as <-. simpl in *.
       destruct Htt as [Htt1 [[Hcg Hcs] Htt2_2]].
       repeat split; assumption.
-    * destruct t2_2; try discriminate Hhead.
+    * destruct t2_2; simpl in Hhead; try discriminate Hhead.
+      destruct g; simpl in Hhead; try discriminate Hhead.
       injection Hhead as <-. simpl in *.
       destruct Htt as [Htt1 [Htt2_1 [Hcg Hcs]]].
       repeat split; assumption.
@@ -709,23 +719,28 @@ Proof.
       simpl in Hhead; try discriminate Hhead.
     + (* PruneConj: tconj tfail _ -> tfail *)
       injection Hhead as <-. inversion Hsin'.
-    + (* SuccConj: tconj (tgoal _ s0) g0 -> tgoal g0 s0 *)
-      injection Hhead as <-.
+    + (* SuccConj: tconj (tgoal gsucc s0) g0 -> tgoal g0 s0 *)
+      destruct g1; simpl in Hhead; try discriminate Hhead;
+      injection Hhead as <-; simpl in *.
       pose proof state_in_tgoal_eq _ _ _ Hsin' as ->.
       apply Hcg. apply SI_tconj. constructor.
     + (* DelayConj: tconj (tdelay t0) g0 -> tdelay (tconj t0 g0) *)
       injection Hhead as <-.
       apply Hcg. apply SI_tconj. apply SI_tdelay.
       exact (state_in_conj_inv _ g0 _ (state_in_delay_inv _ _ Hsin')).
-    + (* LeftAnsConj: tconj (tdisjL (tgoal _ s0) r2) g0 -> tdisjL ... *)
-      destruct r1; try discriminate Hhead. injection Hhead as <-.
+    + (* LeftAnsConj: tconj (tdisjL (tgoal gsucc s0) r2) g0 -> tdisjL ... *)
+      destruct r1 as [| g_l s_l | | | | | ]; simpl in Hhead; try discriminate Hhead.
+      destruct g_l; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-.
       destruct (state_in_disjL_inv _ _ _ Hsin') as [Hl | Hr].
       * pose proof state_in_tgoal_eq _ _ _ (state_in_conj_inv _ _ _ Hl) as ->.
         apply Hcg. apply SI_tconj. apply SI_tdisjL_l. constructor.
       * apply Hcg. apply SI_tconj. apply SI_tdisjL_r.
         exact (state_in_conj_inv _ g0 _ Hr).
-    + (* RightAnsConj: tconj (tdisjR r1 (tgoal _ s0)) g0 -> tdisjR ... *)
-      destruct r2; try discriminate Hhead. injection Hhead as <-.
+    + (* RightAnsConj: tconj (tdisjR r1 (tgoal gsucc s0)) g0 -> tdisjR ... *)
+      destruct r2 as [| g_r s_r | | | | | ]; simpl in Hhead; try discriminate Hhead.
+      destruct g_r; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-.
       destruct (state_in_disjR_inv _ _ _ Hsin') as [Hl | Hr].
       * apply Hcg. apply SI_tconj. apply SI_tdisjR_l.
         exact (state_in_conj_inv _ g0 _ Hl).
@@ -740,16 +755,20 @@ Proof.
       destruct (state_in_disjR_inv _ _ _ (state_in_delay_inv _ _ Hsin')) as [Hl | Hr].
       * exact (Hcg s' (SI_tdisjL_l _ _ _ (SI_tdelay _ _ Hl))).
       * exact (Hcg s' (SI_tdisjL_r _ _ _ Hr)).
-    + (* AssocLeftLeft: tdisjL (tdisjL (tgoal _ s0) t1b) t2 -> tdisjL (tgoal _ s0) (tdisjL t1b t2) *)
-      destruct t1a as [| g0 s0 | | | | | ]; try discriminate Hhead. injection Hhead as <-.
+    + (* AssocLeftLeft: tdisjL (tdisjL (tgoal gsucc s0) t1b) t2 -> tdisjL (tgoal gsucc s0) (tdisjL t1b t2) *)
+      destruct t1a as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
+      destruct g0; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-.
       destruct (state_in_disjL_inv _ _ _ Hsin') as [Hl | Hr].
       * pose proof state_in_tgoal_eq _ _ _ Hl as ->.
         exact (Hcg s0 (SI_tdisjL_l _ _ _ (SI_tdisjL_l _ _ _ (SI_tgoal _ s0)))).
       * destruct (state_in_disjL_inv _ _ _ Hr) as [Hl2 | Hr2];
           [exact (Hcg s' (SI_tdisjL_l _ _ _ (SI_tdisjL_r _ _ _ Hl2))) |
            exact (Hcg s' (SI_tdisjL_r _ _ _ Hr2))].
-    + (* AssocLeftRight: tdisjL (tdisjR t1a (tgoal _ s0)) t2 -> tdisjR (tdisjL t1a t2) (tgoal _ s0) *)
-      destruct t1b as [| g0 s0 | | | | | ]; try discriminate Hhead. injection Hhead as <-.
+    + (* AssocLeftRight: tdisjL (tdisjR t1a (tgoal gsucc s0)) t2 -> tdisjR (tdisjL t1a t2) (tgoal gsucc s0) *)
+      destruct t1b as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
+      destruct g0; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-.
       destruct (state_in_disjR_inv _ _ _ Hsin') as [Hl | Hr].
       * destruct (state_in_disjL_inv _ _ _ Hl) as [Hl2 | Hr2];
           [exact (Hcg s' (SI_tdisjL_l _ _ _ (SI_tdisjR_l _ _ _ Hl2))) |
@@ -765,16 +784,20 @@ Proof.
       destruct (state_in_disjL_inv _ _ _ (state_in_delay_inv _ _ Hsin')) as [Hl | Hr].
       * exact (Hcg s' (SI_tdisjR_l _ _ _ Hl)).
       * exact (Hcg s' (SI_tdisjR_r _ _ _ (SI_tdelay _ _ Hr))).
-    + (* AssocRightLeft: tdisjR t1 (tdisjL (tgoal _ s0) t22) -> tdisjL (tgoal _ s0) (tdisjR t1 t22) *)
-      destruct t21 as [| g0 s0 | | | | | ]; try discriminate Hhead. injection Hhead as <-.
+    + (* AssocRightLeft: tdisjR t1 (tdisjL (tgoal gsucc s0) t22) -> tdisjL (tgoal gsucc s0) (tdisjR t1 t22) *)
+      destruct t21 as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
+      destruct g0; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-.
       destruct (state_in_disjL_inv _ _ _ Hsin') as [Hl | Hr].
       * pose proof state_in_tgoal_eq _ _ _ Hl as ->.
         exact (Hcg s0 (SI_tdisjR_r _ _ _ (SI_tdisjL_l _ _ _ (SI_tgoal _ s0)))).
       * destruct (state_in_disjR_inv _ _ _ Hr) as [Hl2 | Hr2];
           [exact (Hcg s' (SI_tdisjR_l _ _ _ Hl2)) |
            exact (Hcg s' (SI_tdisjR_r _ _ _ (SI_tdisjL_r _ _ _ Hr2)))].
-    + (* AssocRightRight: tdisjR t1 (tdisjR t21 (tgoal _ s0)) -> tdisjR (tdisjR t1 t21) (tgoal _ s0) *)
-      destruct t22 as [| g0 s0 | | | | | ]; try discriminate Hhead. injection Hhead as <-.
+    + (* AssocRightRight: tdisjR t1 (tdisjR t21 (tgoal gsucc s0)) -> tdisjR (tdisjR t1 t21) (tgoal gsucc s0) *)
+      destruct t22 as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
+      destruct g0; simpl in Hhead; try discriminate Hhead.
+      injection Hhead as <-.
       destruct (state_in_disjR_inv _ _ _ Hsin') as [Hl | Hr].
       * destruct (state_in_disjR_inv _ _ _ Hl) as [Hl2 | Hr2];
           [exact (Hcg s' (SI_tdisjR_l _ _ _ Hl2)) |
