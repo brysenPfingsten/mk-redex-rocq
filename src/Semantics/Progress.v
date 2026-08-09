@@ -50,44 +50,34 @@ Proof.
       | tL IHtL tR IHtR ];
   intros [c Hclosed] Htt.
 
-  (* tfail: final *)
   - left. left. reflexivity.
 
-  (* tgoal g s *)
   - destruct g.
-    + (* gsucc: value *)
-      left. right. exists s. reflexivity.
-    + (* gunify: head always produces Some *)
-      right.
+    + left. right. exists s. reflexivity.
+    + right.
       destruct (unify t t0 (st_sub s)) eqn:Eu.
       * apply (SS_ctx G chole (tgoal (gunify t t0) s)
                       (tgoal gsucc (mkstate s0 (st_cnt s)))).
         simpl. rewrite Eu. reflexivity.
       * apply (SS_ctx G chole (tgoal (gunify t t0) s) tfail).
         simpl. rewrite Eu. reflexivity.
-    + (* grelcall: Delay rule *)
-      right.
+    + right.
       apply (SS_ctx G chole (tgoal (grelcall n l) s) (tdelay (tproceed n l s))).
       reflexivity.
-    + (* gdisj: DistrDisj *)
-      right.
+    + right.
       apply (SS_ctx G chole (tgoal (gdisj g1 g2) s) (tdisjL (tgoal g1 s) (tgoal g2 s))).
       reflexivity.
-    + (* gconj: DistrConj *)
-      right.
+    + right.
       apply (SS_ctx G chole (tgoal (gconj g1 g2) s) (tconj (tgoal g1 s) g2)).
       reflexivity.
-    + (* gfresh: SubstFresh *)
-      right.
+    + right.
       apply (SS_ctx G chole (tgoal (gfresh n g) s)
                (tgoal (open (map tvar (seq (st_cnt s) n)) g)
                       (mkstate (st_sub s) (st_cnt s + n)))).
       reflexivity.
 
-  (* tdelay t': S_delay applies *)
   - right. apply SS_delay.
 
-  (* tproceed n l s: Proceed rule, arity given by closed_tree *)
   - simpl in Hclosed.
     destruct (nth_error G n) as [[n0 body]|] eqn:En.
     + destruct Hclosed as [_ [Hlen _]].
@@ -96,99 +86,76 @@ Proof.
       simpl. rewrite En. rewrite <- Hlen. rewrite Nat.eqb_refl. reflexivity.
     + exact (False_ind _ Hclosed).
 
-  (* tconj tc gc *)
   - simpl in Hclosed, Htt.
     destruct Hclosed as [Hct _].
     destruct Htt as [Htt1 _].
     destruct (IHtc (ex_intro _ c Hct) Htt1) as [Hfin | Hss].
-    + (* tc is final *)
-      destruct Hfin as [-> | [s ->]].
-      * (* PruneConj: tconj tfail g -> tfail *)
-        right. apply (SS_ctx G chole (tconj tfail gc) tfail). reflexivity.
-      * (* SuccConj: tconj (tgoal gsucc s) g -> tgoal g s *)
-        right. apply (SS_ctx G chole (tconj (tgoal gsucc s) gc) (tgoal gc s)). reflexivity.
-    + (* tc can step: invert to find which shape *)
-      inversion Hss; subst.
-      * (* tc = plug E r with head G r = Some r': lift via cconj *)
-        right.
+    + destruct Hfin as [-> | [s ->]].
+      * right. apply (SS_ctx G chole (tconj tfail gc) tfail). reflexivity.
+      * right. apply (SS_ctx G chole (tconj (tgoal gsucc s) gc) (tgoal gc s)). reflexivity.
+    + inversion Hss; subst.
+      * right.
         apply (SS_ctx G (cconj E gc) r r').
         exact H.
-      * (* tc = tdelay t0: DelayConj *)
-        right.
+      * right.
         apply (SS_ctx G chole (tconj (tdelay t) gc) (tdelay (tconj t gc))).
         reflexivity.
-      * (* tc = tdisjL (tgoal gsucc s) t2: LeftAnsConj *)
-        right.
+      * right.
         apply (SS_ctx G chole
                  (tconj (tdisjL (tgoal gsucc s) t2) gc)
                  (tdisjL (tconj (tgoal gsucc s) gc) (tconj t2 gc))).
         reflexivity.
-      * (* tc = tdisjR t1 (tgoal gsucc s): RightAnsConj *)
-        right.
+      * right.
         apply (SS_ctx G chole
                  (tconj (tdisjR t1 (tgoal gsucc s)) gc)
                  (tdisjR (tconj t1 gc) (tconj (tgoal gsucc s) gc))).
         reflexivity.
 
-  (* tdisjL tL tR: recurse on left branch *)
   - simpl in Hclosed, Htt.
     destruct Hclosed as [HctL _].
     destruct Htt as [HttL _].
     destruct (IHtL (ex_intro _ c HctL) HttL) as [Hfin | Hss].
     + destruct Hfin as [-> | [s ->]].
-      * (* PruneLeft: tdisjL tfail tR -> tR *)
-        right. apply (SS_ctx G chole (tdisjL tfail tR) tR). reflexivity.
-      * (* tL = tgoal gsucc s: S_promoteL *)
-        right. apply (SS_promoteL G s tR).
+      * right. apply (SS_ctx G chole (tdisjL tfail tR) tR). reflexivity.
+      * right. apply (SS_promoteL G s tR).
     + inversion Hss; subst.
-      * (* lift ctx step on tL via cdisjL *)
-        right.
+      * right.
         apply (SS_ctx G (cdisjL E tR) r r').
         exact H.
-      * (* tL = tdelay t0: DelayLeft *)
-        right.
+      * right.
         apply (SS_ctx G chole (tdisjL (tdelay t) tR) (tdelay (tdisjR t tR))).
         reflexivity.
-      * (* tL = tdisjL (tgoal gsucc s) t2: AssocLeftLeft *)
-        right.
+      * right.
         apply (SS_ctx G chole
                  (tdisjL (tdisjL (tgoal gsucc s) t2) tR)
                  (tdisjL (tgoal gsucc s) (tdisjL t2 tR))).
         reflexivity.
-      * (* tL = tdisjR t1 (tgoal gsucc s): AssocLeftRight *)
-        right.
+      * right.
         apply (SS_ctx G chole
                  (tdisjL (tdisjR t1 (tgoal gsucc s)) tR)
                  (tdisjR (tdisjL t1 tR) (tgoal gsucc s))).
         reflexivity.
 
-  (* tdisjR tL tR: recurse on right branch *)
   - simpl in Hclosed, Htt.
     destruct Hclosed as [_ HctR].
     destruct Htt as [_ HttR].
     destruct (IHtR (ex_intro _ c HctR) HttR) as [Hfin | Hss].
     + destruct Hfin as [-> | [s ->]].
-      * (* PruneRight: tdisjR tL tfail -> tL *)
-        right. apply (SS_ctx G chole (tdisjR tL tfail) tL). reflexivity.
-      * (* tR = tgoal gsucc s: S_promoteR *)
-        right. apply (SS_promoteR G tL s).
+      * right. apply (SS_ctx G chole (tdisjR tL tfail) tL). reflexivity.
+      * right. apply (SS_promoteR G tL s).
     + inversion Hss; subst.
-      * (* lift ctx step on tR via cdisjR *)
-        right.
+      * right.
         apply (SS_ctx G (cdisjR tL E) r r').
         exact H.
-      * (* tR = tdelay t0: DelayRight *)
-        right.
+      * right.
         apply (SS_ctx G chole (tdisjR tL (tdelay t)) (tdelay (tdisjL tL t))).
         reflexivity.
-      * (* tR = tdisjL (tgoal gsucc s) t2: AssocRightLeft *)
-        right.
+      * right.
         apply (SS_ctx G chole
                  (tdisjR tL (tdisjL (tgoal gsucc s) t2))
                  (tdisjL (tgoal gsucc s) (tdisjR tL t2))).
         reflexivity.
-      * (* tR = tdisjR t1 (tgoal gsucc s): AssocRightRight *)
-        right.
+      * right.
         apply (SS_ctx G chole
                  (tdisjR tL (tdisjR t1 (tgoal gsucc s)))
                  (tdisjR (tdisjR tL t1) (tgoal gsucc s))).
