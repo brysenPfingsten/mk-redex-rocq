@@ -8,3 +8,4 @@ src/Language/Trees.v
 src/Semantics/Reduction.v
 src/Semantics/WellFormed.v
 src/Semantics/Determinism.v
+src/Semantics/Progress.v
