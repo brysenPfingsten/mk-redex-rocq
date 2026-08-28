@@ -912,3 +912,40 @@ Proof.
   - exact Hok.
   - apply IHHmulti. exact (step_ok G e1 e2 HG Hok H).
 Qed.
+
+(* ================================================================== *)
+(*  Acyclicity threading into ok_expr                                   *)
+(* ================================================================== *)
+
+(** TODO: [ok_expr] should gain a fourth conjunct once [unify_f_acyclic] is
+    proved.  Without it, [unify_sound] cannot be applied to any state
+    reachable from a well-formed initial expression.
+
+      [forall s, state_in (snd e) s -> acyclic_sub (st_sub s)]
+
+    Adding this requires updating [step_ok], [multi_ok], and the initial
+    well-formedness lemma (to be written) that converts a [closed_program]
+    into an [ok_expr]. *)
+
+(** S2: Each step preserves the acyclicity of every reachable substitution.
+    The only non-trivial case is [S_ctx] with a [gunify] redex; it follows
+    from [unify_f_acyclic]. *)
+Lemma step_preserves_acyclic : forall G e e',
+  closed_env G ->
+  ok_expr G e ->
+  (forall s, state_in (snd e)  s -> acyclic_sub (st_sub s)) ->
+  G |= e --> e' ->
+  (forall s, state_in (snd e') s -> acyclic_sub (st_sub s)).
+Proof. Admitted.
+
+(** S3: The [gunify] reduction step is semantically correct: the substitution
+    it produces actually unifies the two terms under deep application.
+    This is the statement that [unify_sound] supplies for the specific
+    context in which [head] calls [unify]. *)
+Lemma head_gunify_semantics : forall t1 t2 s s',
+  acyclic_sub (st_sub s) ->
+  closed_term 0 (st_cnt s) t1 ->
+  closed_term 0 (st_cnt s) t2 ->
+  unify t1 t2 (st_sub s) = Some s' ->
+  apply_sub t1 s' = apply_sub t2 s'.
+Proof. Admitted.
