@@ -1,4 +1,4 @@
-From Stdlib Require Import List Arith Lia.
+From Stdlib Require Import List Arith Lia Wf_nat.
 Import ListNotations.
 Require Import MkRedex.Language.Terms.
 Set Default Goal Selector "!".
@@ -108,8 +108,10 @@ Definition acyclic_sub (s : sub) : Prop :=
 (* ================================================================== *)
 
 (** W1: [walk t s] always terminates at a fixed point: if the result is a
-    [tvar x], then [x] has no binding in [s]. *)
+    [tvar x], then [x] has no binding in [s].  Requires acyclicity so the
+    fuel [S (length s)] is guaranteed to be sufficient. *)
 Lemma walk_result_form : forall t s,
+  acyclic_sub s ->
   match walk t s with
   | tvar x => lookup x s = None
   | _      => True
@@ -148,6 +150,54 @@ Proof.
   - reflexivity.
   - destruct t; try reflexivity.
     exfalso. exact (Hnt _ eq_refl).
+Qed.
+
+(** Engine for W1: rank-parameterized fixed-point property of [walk_f].
+    If [rank_fn] witnesses acyclicity of [s] and [fuel > rank_fn x],
+    then [walk_f fuel (tvar x) s] ends at an unbound variable. *)
+Lemma walk_f_acyclic_aux : forall (rank_fn : nat -> nat) s,
+  (forall x' t, lookup x' s = Some t ->
+   forall y, occurs y t = true -> rank_fn y < rank_fn x') ->
+  forall n x fuel,
+  rank_fn x <= n ->
+  fuel > n ->
+  match walk_f fuel (tvar x) s with
+  | tvar y => lookup y s = None
+  | _ => True
+  end.
+Proof.
+  intros rank_fn s Hrank.
+  induction n as [n IHn] using (well_founded_induction lt_wf).
+  intros x fuel Hrx Hfuel.
+  destruct fuel as [|f]; [lia|].
+  simpl.
+  destruct (lookup x s) as [u|] eqn:Hlook.
+  - destruct u as [y|i|q|r|k|b| |a1 a2].
+    + assert (Hry : rank_fn y < rank_fn x).
+      { exact (Hrank x (tvar y) Hlook y (Nat.eqb_refl y)). }
+      apply IHn with (rank_fn y); lia.
+    + rewrite walk_f_nonvar_id; [trivial | intros z H; discriminate].
+    + rewrite walk_f_nonvar_id; [trivial | intros z H; discriminate].
+    + rewrite walk_f_nonvar_id; [trivial | intros z H; discriminate].
+    + rewrite walk_f_nonvar_id; [trivial | intros z H; discriminate].
+    + rewrite walk_f_nonvar_id; [trivial | intros z H; discriminate].
+    + rewrite walk_f_nonvar_id; [trivial | intros z H; discriminate].
+    + rewrite walk_f_nonvar_id; [trivial | intros z H; discriminate].
+  - trivial.
+Qed.
+
+(** Corollary: fuel > rank_fn x suffices directly. *)
+Lemma walk_f_acyclic_result : forall (rank_fn : nat -> nat) x s fuel,
+  (forall x' t, lookup x' s = Some t ->
+   forall y, occurs y t = true -> rank_fn y < rank_fn x') ->
+  fuel > rank_fn x ->
+  match walk_f fuel (tvar x) s with
+  | tvar y => lookup y s = None
+  | _ => True
+  end.
+Proof.
+  intros rank_fn x s fuel Hrank Hfuel.
+  exact (walk_f_acyclic_aux rank_fn s Hrank (rank_fn x) x fuel (Nat.le_refl _) Hfuel).
 Qed.
 
 (** Auxiliary: a binding's value is no larger than the whole substitution. *)
@@ -315,7 +365,53 @@ Lemma unify_f_acyclic : forall fuel t1 t2 s s',
   acyclic_sub s ->
   unify_f fuel t1 t2 s = Some s' ->
   acyclic_sub s'.
-Proof. Admitted.
+Proof.
+  induction fuel as [|f IHf]; intros t1 t2 s s' Hac Huf.
+  - discriminate.
+  - simpl in Huf.
+    pose proof (walk_result_form t1 s Hac) as HW1a.
+    pose proof (walk_result_form t2 s Hac) as HW1b.
+    destruct (walk t1 s) as [x|i1|q1|r1|n1|bl1| |a1 a2] eqn:Ea,
+             (walk t2 s) as [y|i2|q2|r2|n2|bl2| |c1 c2] eqn:Eb.
+    (* tvar x, tvar y: x=y → return s; x≠y → extend with (x, walk t2 s) *)
+    all: try (
+      destruct (Nat.eqb x y) eqn:Hxy;
+      [ injection Huf as <-; exact Hac
+      | injection Huf as <-;
+        rewrite <- Eb;
+        apply walk_occurs_acyclic;
+        [ exact Hac
+        | exact HW1a
+        | rewrite Eb; simpl; exact Hxy ] ]
+    ).
+    (* tvar x, non-tvar t2: occurs check then extend with (x, walk t2 s) *)
+    all: try (
+      destruct (occurs x _) eqn:Hocc; [discriminate|];
+      injection Huf as <-;
+      rewrite <- Eb;
+      apply walk_occurs_acyclic;
+      [ exact Hac | exact HW1a | rewrite Eb; exact Hocc ]
+    ).
+    (* non-tvar t1, tvar y: occurs check then extend with (y, walk t1 s) *)
+    all: try (
+      destruct (occurs y _) eqn:Hocc; [discriminate|];
+      injection Huf as <-;
+      rewrite <- Ea;
+      apply walk_occurs_acyclic;
+      [ exact Hac | exact HW1b | rewrite Ea; exact Hocc ]
+    ).
+    (* tcons a1 a2, tcons c1 c2: recursive — only goal where a1,a2,c1,c2 in scope *)
+    all: try (
+      destruct (unify_f f a1 c1 s) as [s1|] eqn:Hs1; [|discriminate];
+      apply IHf with a2 c2 s1;
+      [ apply IHf with a1 c1 s; [exact Hac | exact Hs1] | exact Huf ]
+    ).
+    (* remaining: non-var non-tcons pairs → term_eqb *)
+    all: (
+      destruct (term_eqb _ _);
+      [ injection Huf as <-; exact Hac | discriminate ]
+    ).
+Qed.
 
 (* ================================================================== *)
 (*  U3 support: depth measure and helper lemmas                        *)
