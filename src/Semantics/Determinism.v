@@ -31,28 +31,6 @@ Proof.
 Qed.
 
 (* ================================================================== *)
-(*  Head does not fire on promote/delay shapes                         *)
-(* ================================================================== *)
-
-Lemma Head_no_delay : forall G t r,
-  ~Head G (tdelay t) r.
-Proof.
-  intros G t r H. inversion H.
-Qed.
-
-Lemma Head_no_promoteL : forall G s t r,
-  ~Head G (tdisjL (tgoal gsucc s) t) r.
-Proof.
-  intros G s t r H. inversion H.
-Qed.
-
-Lemma Head_no_promoteR : forall G t s r,
-  ~Head G (tdisjR t (tgoal gsucc s)) r.
-Proof.
-  intros G t s r H. inversion H.
-Qed.
-
-(* ================================================================== *)
 (*  Plugging a redex into a non-hole context kills the redex           *)
 (* ================================================================== *)
 
@@ -67,12 +45,7 @@ Lemma plug_neq_atomic : forall G E r r_out,
 Proof.
   intros G E r r_out HHead.
   induction E; simpl.
-  - repeat split.
-    + intro H. subst. inversion HHead.
-    + intros d H. subst. exact (Head_no_delay _ _ _ HHead).
-    + intros sv tv H. subst.  exact (Head_no_promoteL _ _ _ _ HHead).
-    + intros tv sv H. subst. exact (Head_no_promoteR _ _ _ _ HHead).
-    + intros sv H. subst. inversion HHead.
+  - repeat split; unfold not; intros; subst; inversion HHead.
   - destruct IHE as [_ [_ [_ [_ IH5]]]].
     repeat split; try discriminate.
     intros sv tv H. injection H as H1 _. exact (IH5 sv H1).
@@ -223,7 +196,7 @@ Lemma ctx_not_delay : forall G E r r' t,
 Proof.
   intros G E r r' t H Hplug.
   apply plug_eq_tdelay in Hplug. destruct Hplug as [-> ->].
-  exact (Head_no_delay G t r' H).
+  inversion H.
 Qed.
 
 Lemma ctx_not_promoteL : forall G E r r' s t,
@@ -231,7 +204,7 @@ Lemma ctx_not_promoteL : forall G E r r' s t,
 Proof.
   intros G E r r' s t H Hplug.
   destruct E; simpl in Hplug; try discriminate.
-  - rewrite Hplug in H. exact (Head_no_promoteL G s t r' H).
+  - rewrite Hplug in H. inversion H.
   - injection Hplug as Hg _.
     apply plug_eq_tgoal in Hg. destruct Hg as [-> ->].
     inversion H.
@@ -242,7 +215,7 @@ Lemma ctx_not_promoteR : forall G E r r' t s,
 Proof.
   intros G E r r' t s H Hplug.
   destruct E; simpl in Hplug; try discriminate.
-  - rewrite Hplug in H. exact (Head_no_promoteR G t s r' H).
+  - rewrite Hplug in H. inversion H.
   - injection Hplug as _ Hg.
     apply plug_eq_tgoal in Hg. destruct Hg as [-> ->].
     inversion H.
