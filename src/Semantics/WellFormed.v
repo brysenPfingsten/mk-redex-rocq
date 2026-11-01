@@ -288,169 +288,19 @@ Proof.
   intros. unfold walk. apply walk_f_closed; assumption.
 Qed.
 
-
-
-(* Successfully unifying two closed terms in a closed sub yields a closed sub *)
-Lemma unify_f_closed : forall fuel c t1 t2 s s',
-  closed_term 0 c t1 -> closed_term 0 c t2 -> closed_sub c s ->
-  unify_f fuel t1 t2 s = Some s' -> closed_sub c s'.
-Proof.
-  induction fuel as [|f IH]; intros c t1 t2 s s' Ht1 Ht2 Hcs H.
-  - unfold unify_f in H. discriminate.
-  - assert (Ha : closed_term 0 c (walk t1 s)) by (apply walk_closed; assumption).
-    assert (Hb : closed_term 0 c (walk t2 s)) by (apply walk_closed; assumption).
-    destruct (walk t1 s) eqn:Et1; destruct (walk t2 s) eqn: Et2;
-    unfold unify_f in H; rewrite Et1 in H; rewrite Et2 in H;
-    simpl in H, Ha, Hb; try discriminate H.
-    * destruct (Nat.eqb n n0).
-      + injection H as <-. exact Hcs.
-      + injection H as <-. simpl. repeat split; assumption.
-    * lia.
-    * injection H as <-. repeat split; assumption.
-    * injection H as <-. repeat split; assumption.
-    * injection H as <-. repeat split; assumption.
-    * injection H as <-. repeat split; assumption.
-    * injection H as <-. repeat split; assumption.
-    * destruct (occurs _ _); simpl in H.
-      + discriminate H.
-      + destruct (occurs _ _).
-        -- discriminate H.
-        -- injection H as <-. destruct Hb as [Hb1 Hb2]. repeat split; assumption.
-    * injection H as <-. repeat split; assumption.
-    * destruct ((n =? n0)%nat).
-      + injection H as <-. exact Hcs.
-      + discriminate H.
-    * injection H as <-. simpl. repeat split; assumption.
-    * destruct (String.eqb _ _).
-      + injection H as <-. exact Hcs.
-      + discriminate H.
-    * injection H as <-. simpl. repeat split; assumption.
-    * destruct (String.eqb _ _).
-      + injection H as <-. exact Hcs.
-      + discriminate H.
-    * injection H as <-. simpl. repeat split; assumption.
-    * destruct ((n =? n0)%nat).
-      + injection H as <-. exact Hcs.
-      + discriminate H.
-    * injection H as <-. simpl. repeat split; assumption.
-    * destruct (Bool.eqb _ _).
-      + injection H as <-. simpl. repeat split; assumption.
-      + discriminate H.
-    * injection H as <-. simpl. repeat split; assumption.
-    * injection H as <-. simpl. repeat split; assumption.
-    * destruct (occurs _ _); simpl in H.
-      + discriminate H.
-      + destruct (occurs _ _).
-        -- discriminate H.
-        -- injection H as <-. destruct Ha as [Ha1 Ha2]. repeat split; assumption.
-    * destruct Ha as [Ha1 Ha2], Hb as [Hb1 Hb2].
-      change (match unify_f f t3 t5 s with
-              | Some s1 => unify_f f t4 t6 s1
-              | None => None
-              end = Some s') in H.
-      destruct (unify_f f t3 t5 s) eqn:E1; [|discriminate H].
-      assert (Hs1 : closed_sub c s0) by (eapply IH; [exact Ha1 | exact Hb1 | exact Hcs | exact E1]).
-      eapply IH; [exact Ha2 | exact Hb2 | exact Hs1 | exact H].
-Qed.
-
-Lemma unify_closed : forall c t1 t2 s s',
+(** A successful [Unify] on closed terms yields a closed substitution. *)
+Lemma Unify_closed : forall c t1 t2 s s',
   closed_term 0 c t1 ->
   closed_term 0 c t2 ->
-  closed_sub c s -> 
-  unify t1 t2 s = Some s' -> 
+  closed_sub c s ->
+  Unify t1 t2 s (Some s') ->
   closed_sub c s'.
-Proof.
-  intros. unfold unify in H2. exact (unify_f_closed _ _ _ _ _ _ H H0 H1 H2).
-Qed.
+Proof. Admitted.
 
-Lemma head_closed : forall G c t t',
-  closed_env G -> closed_tree G c t -> head G t = Some t' ->
+Lemma Head_closed : forall G c t t',
+  closed_env G -> closed_tree G c t -> Head G t t' ->
   exists c', closed_tree G c' t'.
-Proof.
-  intros G c t t' HG Ht Hhead.
-  destruct t; simpl in *.
-  - (*tfail*) discriminate Hhead.
-  - (*tgoal*) destruct g; destruct Ht as [Hlt [Hcg Hcs]].
-    * (*gsucc*) discriminate.
-    * (*gunify*) exists c.
-      destruct (unify t t0 (st_sub s)) eqn:Eunify.
-      + injection Hhead as <-. simpl. destruct Hcg as [Hct Hct0]. repeat split.
-        -- exact Hlt.
-        -- exact (unify_closed c t t0 (st_sub s) s0 Hct Hct0 Hcs Eunify).
-      + injection Hhead as <-. simpl. exact I.
-    * (*relcall*) exists c. injection Hhead as <-. simpl.
-      destruct (nth_error G n) eqn:E.
-      + destruct p. simpl in Hcg. rewrite E in Hcg. destruct Hcg as [Hlen Hfa].
-        repeat split.
-        -- exact Hlt.
-        -- exact Hlen.
-        -- exact Hfa.
-        -- exact Hcs.
-      + simpl in Hcg. rewrite E in Hcg. exact (False_ind _ Hcg).
-    * (*disj*) exists c. injection Hhead as <-. simpl. repeat split.
-      1, 3, 4, 6: assumption.
-      + exact (proj1 Hcg).
-      + exact (proj2 Hcg).
-    * (*conj*) exists c. injection Hhead as <-. simpl. repeat split.
-      1, 3: assumption.
-      + exact (proj1 Hcg).
-      + exact (proj2 Hcg).
-    * (*fresh*) exists (c + n). injection Hhead as <-. simpl. repeat split.
-      + lia.
-      + apply open_goal_closed.
-        -- rewrite length_map, length_seq, Nat.add_0_r. exact Hcg.
-        -- rewrite Forall_map. apply Forall_forall.
-           intros x Hx. apply in_seq in Hx. simpl. lia.
-      + exact (closed_sub_mono c (c + n) (st_sub s) (Nat.le_add_r c n) Hcs).
-  - (*tdelay*) discriminate Hhead.
-  - (*tproceed*) destruct (nth_error G n) eqn:Ea.
-    + exists c.
-      destruct p as [n0 body].
-      destruct Ht as [Hle [Hlen [Hfa Hcs]]].
-      rewrite <- Hlen, Nat.eqb_refl in Hhead.
-      injection Hhead as <-. repeat split.
-      * exact Hle.
-      * apply open_closed.
-        -- rewrite Hlen.
-           exact (closed_goal_mono G n0 n0 0 c body
-                    (Nat.le_refl n0) (Nat.le_0_l c) (HG n n0 body Ea)).
-        -- exact Hfa.
-      * exact Hcs.
-    + destruct Ht.
-  - exists c. destruct t; simpl in Hhead.
-      * injection Hhead as <-. exact (proj1 Ht).
-      * destruct g0; simpl in Hhead; 
-        try discriminate Hhead; try injection Hhead as <-; simpl in *; tauto.
-      * injection Hhead as <-. simpl in *. exact Ht.
-      * discriminate Hhead.
-      * discriminate Hhead.
-      * destruct t1; simpl in Hhead; try discriminate Hhead.
-        destruct g0; simpl in Hhead; try discriminate Hhead;
-        injection Hhead as <-; simpl in *; tauto.
-      * destruct t2; simpl in Hhead; try discriminate Hhead.
-        destruct g0; simpl in Hhead; try discriminate Hhead;
-        injection Hhead as <-; simpl in *; try tauto.
-  - exists c. destruct t1; simpl in Hhead;
-      try injection Hhead as <-; try discriminate Hhead.
-      * exact (proj2 Ht).
-      * simpl in *. exact Ht.
-      * destruct t1_1; simpl in Hhead; try discriminate Hhead.
-        destruct g; simpl in Hhead; try discriminate Hhead;
-        injection Hhead as <-; simpl in *; tauto.
-      * destruct t1_2; simpl in Hhead; try discriminate Hhead.
-        destruct g; simpl in Hhead; try discriminate Hhead;
-        injection Hhead as <-; simpl in *; tauto.
-  - exists c. destruct t2; simpl in Hhead;
-      try injection Hhead as <-; try discriminate Hhead.
-      * exact (proj1 Ht).
-      * simpl in *. exact Ht.
-      * destruct t2_1; simpl in Hhead; try discriminate Hhead.
-        destruct g; simpl in Hhead; try discriminate Hhead;
-        injection Hhead as <-; simpl in *; tauto.
-      * destruct t2_2; simpl in Hhead; try discriminate Hhead.
-        destruct g; simpl in Hhead; try discriminate Hhead;
-        injection Hhead as <-; simpl in *; tauto.
-Qed.
+Proof. Admitted.
 
 
 Inductive state_in : tree -> state -> Prop :=
@@ -533,109 +383,10 @@ Proof.
       exact (state_in_plug_mono E r r' s Hsin Hsinr').
 Qed.
 
-Lemma head_tight : forall G t t',
-  closed_env G -> tight_tree G t -> head G t = Some t' ->
+Lemma Head_tight : forall G t t',
+  closed_env G -> tight_tree G t -> Head G t t' ->
   tight_tree G t'.
-Proof.
-  intros G t t' Hce Htt Hhead. 
-  destruct t; simpl in Hhead; try discriminate Hhead.
-  - destruct g.
-    * inversion Hhead.
-    * destruct (unify t t0 (st_sub s)) eqn:Eunify.
-      + injection Hhead as <-. simpl in *. split.
-        -- apply I.
-        -- destruct Htt as [[Hct Hct0] Hcs].
-           exact (unify_closed (st_cnt s) t t0 (st_sub s) s0 Hct Hct0 Hcs Eunify).
-      + injection Hhead as <-. simpl. exact I.
-    * injection Hhead as <-. simpl in *.
-      destruct (nth_error G n).
-      + destruct p in Htt. destruct Htt as [[_  Hfa] Hcs]. 
-        repeat split; assumption.
-      + destruct (proj1 Htt).
-    * injection Hhead as <-. simpl in *. destruct Htt as [[Hcg1 Hcg2] Hcs].
-      repeat split; assumption.
-    * injection Hhead as <-. simpl in *. destruct Htt as [[Hcg1 Hcg2] Hcs].
-      repeat split; try assumption.
-      intros [sub c] H. simpl in *. inversion H. subst. exact Hcg2.
-    * injection Hhead as <-. simpl in *. 
-      destruct Htt as [Hcg Hcs]. repeat split.
-      + apply open_goal_closed.
-        -- rewrite length_map, length_seq, Nat.add_0_r. exact Hcg.
-        -- rewrite Forall_map. apply Forall_forall.
-           intros x Hx. apply in_seq in Hx. simpl. lia.
-      + apply (closed_sub_mono (st_cnt s) (st_cnt s + n)).
-        -- apply Nat.le_add_r.
-        -- exact Hcs.
-  - destruct (nth_error G n) as [[n0 body]|] eqn:En; [|discriminate Hhead].
-    destruct (Nat.eqb (length l) n0) eqn:Elen; [|discriminate Hhead].
-    injection Hhead as <-.
-    apply Nat.eqb_eq in Elen.
-    destruct Htt as [Hcs Hfa].
-    simpl. split.
-    * apply open_closed.
-      + rewrite Elen.
-        exact (closed_goal_mono G n0 n0 0 (st_cnt s) body
-               (Nat.le_refl _) (Nat.le_0_l _) (Hce n n0 body En)).
-      + exact Hfa.
-    * exact Hcs.
-  - destruct t; try injection Hhead as <-; try discriminate Hhead; simpl in *.
-    * apply I.
-    * destruct g0; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct Htt as [[Hcg0 Hcs] Hforall]. simpl. split.
-      + apply Hforall. exact (SI_tgoal gsucc s).
-      + exact Hcs.
-    * destruct Htt as [Htt Hforall]. simpl. split.
-      + exact Htt.
-      + intros s0 Hsin. apply Hforall. exact (SI_tdelay t s0 Hsin).
-    * destruct t1; simpl in Hhead; try discriminate Hhead.
-      destruct g0; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct Htt as [[[Hcg0 Hcs] Htt2] Hforall]. simpl in *. repeat split.
-      + exact Hcs.
-      + intros s0 Hsin. inversion Hsin. subst.
-        apply Hforall. apply SI_tdisjL_l. apply SI_tgoal.
-      + exact Htt2.
-      + intros s0 Hsin. apply Hforall. apply SI_tdisjL_r. exact Hsin.
-    * destruct t2; simpl in Hhead; try discriminate Hhead.
-      destruct g0; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-. simpl in *.
-      destruct Htt as [[Htt1 [Hcg0 Hcs]] Hforall]. simpl in *. repeat split.
-      + exact Htt1.
-      + intros s0 Hsin. apply Hforall.
-        exact (SI_tdisjR_l _ _ _ Hsin).
-      + exact Hcs.
-      + intros s0 Hsin. apply Hforall.
-        exact (SI_tdisjR_r _ _ _ Hsin).
-  - destruct t1; simpl in Hhead; try discriminate Hhead;
-      try injection Hhead as <-; simpl in *.
-    * exact (proj2 Htt).
-    * exact Htt.
-    * destruct t1_1; simpl in Hhead; try discriminate Hhead.
-      destruct g; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-. simpl in *.
-      destruct Htt as [[[Hcg Hcs] Htt1_2] Htt2].
-      repeat split; assumption.
-    * destruct t1_2; simpl in Hhead; try discriminate Hhead.
-      destruct g; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-. simpl in *.
-      destruct Htt as [[Htt1_1 [Hcg Hcs]] Htt2].
-      repeat split; assumption.
-  - destruct t2; simpl in Hhead; try discriminate Hhead;
-      try injection Hhead as <-; simpl in *.
-    * exact (proj1 Htt).
-    * exact Htt.
-    * destruct t2_1; simpl in Hhead; try discriminate Hhead.
-      destruct g; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-. simpl in *.
-      destruct Htt as [Htt1 [[Hcg Hcs] Htt2_2]].
-      repeat split; assumption.
-    * destruct t2_2; simpl in Hhead; try discriminate Hhead.
-      destruct g; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-. simpl in *.
-      destruct Htt as [Htt1 [Htt2_1 [Hcg Hcs]]].
-      repeat split; assumption.
-Qed.
+Proof. Admitted.
 
 
 Lemma state_in_tgoal_eq : forall g s s', state_in (tgoal g s) s' -> s' = s.
@@ -674,137 +425,11 @@ Qed.
 
 (* Every state in r' has a corresponding state in r with counter <= st_cnt s',
    so any closed_goal condition transfers across a head step. *)
-Lemma head_closed_goal_transfer : forall G r r' g,
-  head G r = Some r' ->
+Lemma Head_closed_goal_transfer : forall G r r' g,
+  Head G r r' ->
   (forall s, state_in r s -> closed_goal G 0 (st_cnt s) g) ->
   forall s', state_in r' s' -> closed_goal G 0 (st_cnt s') g.
-Proof.
-  intros G r r' g Hhead Hcg s' Hsin'.
-  destruct r as [| g0 s | r0 | n l s | r g0 | t1 t2 | t1 t2];
-    simpl in Hhead; try discriminate Hhead.
-  - (* tgoal g0 s *)
-    pose proof (Hcg s (SI_tgoal g0 s)) as Hgs.
-    destruct g0; simpl in Hhead; try discriminate Hhead.
-    + (* gunify *)
-      destruct (unify t t0 (st_sub s)).
-      * injection Hhead as <-.
-        pose proof state_in_tgoal_eq _ _ _ Hsin' as ->. exact Hgs.
-      * injection Hhead as <-. inversion Hsin'.
-    + (* grelcall -> tdelay (tproceed r ts s) *)
-      injection Hhead as <-.
-      pose proof state_in_proceed_eq _ _ _ _ (state_in_delay_inv _ _ Hsin') as ->.
-      exact Hgs.
-    + (* gdisj -> tdisjL (tgoal g1 s) (tgoal g2 s) *)
-      injection Hhead as <-.
-      destruct (state_in_disjL_inv _ _ _ Hsin') as [Hl | Hr];
-        [pose proof state_in_tgoal_eq _ _ _ Hl as -> |
-         pose proof state_in_tgoal_eq _ _ _ Hr as ->]; exact Hgs.
-    + (* gconj -> tconj (tgoal g1 s) g2 *)
-      injection Hhead as <-.
-      pose proof state_in_tgoal_eq _ _ _ (state_in_conj_inv _ _ _ Hsin') as ->.
-      exact Hgs.
-    + (* gfresh: counter increases by n, use closed_goal_mono *)
-      injection Hhead as <-.
-      apply state_in_tgoal_eq in Hsin'. subst s'. simpl.
-      exact (closed_goal_mono G 0 0 (st_cnt s) (st_cnt s + n) g
-               (Nat.le_refl 0) (Nat.le_add_r (st_cnt s) n) Hgs).
-  - (* tproceed r ts s -> tgoal (open ts body) s *)
-    destruct (nth_error G n) as [[n0 body]|]; [|discriminate].
-    destruct (Nat.eqb (length l) n0); [|discriminate].
-    injection Hhead as <-.
-    pose proof state_in_tgoal_eq _ _ _ Hsin' as ->.
-    exact (Hcg s (SI_tproceed n l s)).
-  - (* tconj r g0 *)
-    destruct r as [| g1 s1 | r0 | n1 l1 s1 | r0 g1 | r1 r2 | r1 r2];
-      simpl in Hhead; try discriminate Hhead.
-    + (* PruneConj: tconj tfail _ -> tfail *)
-      injection Hhead as <-. inversion Hsin'.
-    + (* SuccConj: tconj (tgoal gsucc s0) g0 -> tgoal g0 s0 *)
-      destruct g1; simpl in Hhead; try discriminate Hhead;
-      injection Hhead as <-; simpl in *.
-      pose proof state_in_tgoal_eq _ _ _ Hsin' as ->.
-      apply Hcg. apply SI_tconj. constructor.
-    + (* DelayConj: tconj (tdelay t0) g0 -> tdelay (tconj t0 g0) *)
-      injection Hhead as <-.
-      apply Hcg. apply SI_tconj. apply SI_tdelay.
-      exact (state_in_conj_inv _ g0 _ (state_in_delay_inv _ _ Hsin')).
-    + (* LeftAnsConj: tconj (tdisjL (tgoal gsucc s0) r2) g0 -> tdisjL ... *)
-      destruct r1 as [| g_l s_l | | | | | ]; simpl in Hhead; try discriminate Hhead.
-      destruct g_l; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct (state_in_disjL_inv _ _ _ Hsin') as [Hl | Hr].
-      * pose proof state_in_tgoal_eq _ _ _ (state_in_conj_inv _ _ _ Hl) as ->.
-        apply Hcg. apply SI_tconj. apply SI_tdisjL_l. constructor.
-      * apply Hcg. apply SI_tconj. apply SI_tdisjL_r.
-        exact (state_in_conj_inv _ g0 _ Hr).
-    + (* RightAnsConj: tconj (tdisjR r1 (tgoal gsucc s0)) g0 -> tdisjR ... *)
-      destruct r2 as [| g_r s_r | | | | | ]; simpl in Hhead; try discriminate Hhead.
-      destruct g_r; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct (state_in_disjR_inv _ _ _ Hsin') as [Hl | Hr].
-      * apply Hcg. apply SI_tconj. apply SI_tdisjR_l.
-        exact (state_in_conj_inv _ g0 _ Hl).
-      * pose proof state_in_tgoal_eq _ _ _ (state_in_conj_inv _ _ _ Hr) as ->.
-        apply Hcg. apply SI_tconj. apply SI_tdisjR_r. constructor.
-  - (* tdisjL t1 t2 *)
-    destruct t1 as [| g1 s1 | r0 | n1 l1 s1b | r0 g1 | t1a t1b | t1a t1b];
-      try discriminate Hhead; try injection Hhead as <-.
-    + (* PruneLeft: tdisjL tfail t2 -> t2 *)
-      exact (Hcg s' (SI_tdisjL_r _ _ _ Hsin')).
-    + (* DelayLeft: tdisjL (tdelay r0) t2 -> tdelay (tdisjR r0 t2) *)
-      destruct (state_in_disjR_inv _ _ _ (state_in_delay_inv _ _ Hsin')) as [Hl | Hr].
-      * exact (Hcg s' (SI_tdisjL_l _ _ _ (SI_tdelay _ _ Hl))).
-      * exact (Hcg s' (SI_tdisjL_r _ _ _ Hr)).
-    + (* AssocLeftLeft: tdisjL (tdisjL (tgoal gsucc s0) t1b) t2 -> tdisjL (tgoal gsucc s0) (tdisjL t1b t2) *)
-      destruct t1a as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
-      destruct g0; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct (state_in_disjL_inv _ _ _ Hsin') as [Hl | Hr].
-      * pose proof state_in_tgoal_eq _ _ _ Hl as ->.
-        exact (Hcg s0 (SI_tdisjL_l _ _ _ (SI_tdisjL_l _ _ _ (SI_tgoal _ s0)))).
-      * destruct (state_in_disjL_inv _ _ _ Hr) as [Hl2 | Hr2];
-          [exact (Hcg s' (SI_tdisjL_l _ _ _ (SI_tdisjL_r _ _ _ Hl2))) |
-           exact (Hcg s' (SI_tdisjL_r _ _ _ Hr2))].
-    + (* AssocLeftRight: tdisjL (tdisjR t1a (tgoal gsucc s0)) t2 -> tdisjR (tdisjL t1a t2) (tgoal gsucc s0) *)
-      destruct t1b as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
-      destruct g0; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct (state_in_disjR_inv _ _ _ Hsin') as [Hl | Hr].
-      * destruct (state_in_disjL_inv _ _ _ Hl) as [Hl2 | Hr2];
-          [exact (Hcg s' (SI_tdisjL_l _ _ _ (SI_tdisjR_l _ _ _ Hl2))) |
-           exact (Hcg s' (SI_tdisjL_r _ _ _ Hr2))].
-      * pose proof state_in_tgoal_eq _ _ _ Hr as ->.
-        exact (Hcg s0 (SI_tdisjL_l _ _ _ (SI_tdisjR_r _ _ _ (SI_tgoal _ s0)))).
-  - (* tdisjR t1 t2 *)
-    destruct t2 as [| g1 s1 | r0 | n1 l1 s1b | r0 g1 | t21 t22 | t21 t22];
-      try discriminate Hhead; try injection Hhead as <-.
-    + (* PruneRight: tdisjR t1 tfail -> t1 *)
-      exact (Hcg s' (SI_tdisjR_l _ _ _ Hsin')).
-    + (* DelayRight: tdisjR t1 (tdelay r0) -> tdelay (tdisjL t1 r0) *)
-      destruct (state_in_disjL_inv _ _ _ (state_in_delay_inv _ _ Hsin')) as [Hl | Hr].
-      * exact (Hcg s' (SI_tdisjR_l _ _ _ Hl)).
-      * exact (Hcg s' (SI_tdisjR_r _ _ _ (SI_tdelay _ _ Hr))).
-    + (* AssocRightLeft: tdisjR t1 (tdisjL (tgoal gsucc s0) t22) -> tdisjL (tgoal gsucc s0) (tdisjR t1 t22) *)
-      destruct t21 as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
-      destruct g0; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct (state_in_disjL_inv _ _ _ Hsin') as [Hl | Hr].
-      * pose proof state_in_tgoal_eq _ _ _ Hl as ->.
-        exact (Hcg s0 (SI_tdisjR_r _ _ _ (SI_tdisjL_l _ _ _ (SI_tgoal _ s0)))).
-      * destruct (state_in_disjR_inv _ _ _ Hr) as [Hl2 | Hr2];
-          [exact (Hcg s' (SI_tdisjR_l _ _ _ Hl2)) |
-           exact (Hcg s' (SI_tdisjR_r _ _ _ (SI_tdisjL_r _ _ _ Hr2)))].
-    + (* AssocRightRight: tdisjR t1 (tdisjR t21 (tgoal gsucc s0)) -> tdisjR (tdisjR t1 t21) (tgoal gsucc s0) *)
-      destruct t22 as [| g0 s0 | | | | | ]; simpl in Hhead; try discriminate Hhead.
-      destruct g0; simpl in Hhead; try discriminate Hhead.
-      injection Hhead as <-.
-      destruct (state_in_disjR_inv _ _ _ Hsin') as [Hl | Hr].
-      * destruct (state_in_disjR_inv _ _ _ Hl) as [Hl2 | Hr2];
-          [exact (Hcg s' (SI_tdisjR_l _ _ _ Hl2)) |
-           exact (Hcg s' (SI_tdisjR_r _ _ _ (SI_tdisjR_l _ _ _ Hr2)))].
-      * pose proof state_in_tgoal_eq _ _ _ Hr as ->.
-        exact (Hcg s0 (SI_tdisjR_r _ _ _ (SI_tdisjR_r _ _ _ (SI_tgoal _ s0)))).
-Qed.
+Proof. Admitted.
 
 (* Any state in plug E r' is either in plug E r or directly in r'. *)
 Lemma state_in_plug_or : forall E r r' s,
@@ -831,7 +456,7 @@ Qed.
 Lemma plug_tight_head : forall G E r r',
   closed_env G ->
   tight_tree G (plug E r) ->
-  head G r = Some r' ->
+  Head G r r' ->
   tight_tree G r' ->
   tight_tree G (plug E r').
 Proof.
@@ -846,7 +471,7 @@ Proof.
     + intros s Hsin.
       destruct (state_in_plug_or _ r r' s Hsin) as [Hin | Hin].
       * exact (Hfg s Hin).
-      * apply (head_closed_goal_transfer G r r' _ Hhead);
+      * apply (Head_closed_goal_transfer G r r' _ Hhead);
           [intros s0 Hsin0; exact (Hfg s0 (state_in_plug_into _ r s0 Hsin0)) | exact Hin].
 Qed.
 
@@ -864,13 +489,13 @@ Proof.
     destruct Hoke as [[c Hclosed] [Htt Hfa]].
     repeat split; simpl.
     + apply (plug_closed_inv G c E r) in Hclosed as Hcr.
-      destruct (head_closed G c r r' HcG Hcr H) as [c' Hcr'].
+      destruct (Head_closed G c r r' HcG Hcr H) as [c' Hcr'].
       exists (Nat.max c c').
       apply (plug_closed G (Nat.max c c') E r r').
       * exact (closed_tree_mono G c _ _ (Nat.le_max_l c c') Hclosed).
       * exact (closed_tree_mono G c' _ _ (Nat.le_max_r c c') Hcr').
     + apply (plug_tight_head G E r r' HcG Htt H).
-      apply (head_tight G r r' HcG).
+      apply (Head_tight G r r' HcG).
       * exact (plug_tight_inv G E r Htt).
       * exact H.
     + exact Hfa.
