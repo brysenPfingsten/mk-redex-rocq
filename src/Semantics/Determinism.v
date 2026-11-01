@@ -4,7 +4,10 @@ From MkRedex.Language Require Import Terms Substitution Goals Environments Trees
 Require Import MkRedex.Semantics.Reduction.
 Set Default Goal Selector "!".
 
-(* Plugging into a non-hole context produces tdisjL/tdisjR/tconj at the root *)
+(* ================================================================== *)
+(*  Plug shape lemmas                                                 *)
+(* ================================================================== *)
+
 Lemma plug_eq_tgoal : forall E r g s,
   plug E r = tgoal g s -> E = chole /\ r = tgoal g s.
 Proof.
@@ -19,177 +22,7 @@ Proof.
   split; [reflexivity | exact H].
 Qed.
 
-
-(* Promote/delay shapes *)
-Lemma head_tdelay_none   : forall G t,   head G (tdelay t) = None.                 Proof. reflexivity. Qed.
-Lemma head_promoteL_none : forall G s t, head G (tdisjL (tgoal gsucc s) t) = None. Proof. reflexivity. Qed.
-Lemma head_promoteR_none : forall G t s, head G (tdisjR t (tgoal gsucc s)) = None. Proof. reflexivity. Qed.
-
-
-(** Whenever head fires on a composite node, the sub-tree in the context slot has head = None.*)
-Lemma head_ctx_disjL_excl : forall G t1 t2,
-  head G (tdisjL t1 t2) <> None -> head G t1 = None.
-Proof. 
-  intros G t1 t2 Hne.
-  destruct t1; simpl in *; try reflexivity; try contradiction.
-  - destruct t1_1; simpl in *; try reflexivity; try contradiction.
-  - destruct t1_2; simpl in *; try reflexivity; contradiction.
-Qed.
-
-Lemma head_ctx_disjR_excl : forall G t1 t2,
-  head G (tdisjR t1 t2) <> None -> head G t2 = None.
-Proof.
-  intros G t1 t2 Hne.
-  destruct t2; simpl in *; try reflexivity; try contradiction.
-  - destruct t2_1; simpl in *; try reflexivity; contradiction.
-  - destruct t2_2; simpl in *; try reflexivity; contradiction.
-Qed.
-
-Lemma head_ctx_conj_excl : forall G t g,
-  head G (tconj t g) <> None -> head G t = None.
-Proof. 
-  intros G t g Hne.
-  destruct t; simpl in *; try reflexivity; try contradiction.
-  - destruct g0; try reflexivity; contradiction.
-  - destruct t1; try reflexivity; contradiction.
-  - destruct t2; try reflexivity; contradiction.
-Qed.
-
-(* Plug destroys redex-ness *)
-Lemma plug_redex : forall G E r,
-  head G r <> None -> E <> chole -> head G (plug E r) = None.
-Proof.
-  intros G E r Hheadne HEne. induction E.
-  - contradiction.
-  - destruct E; destruct r; simpl in *;
-    try reflexivity; try contradiction.
-    * destruct r1; try reflexivity;
-      destruct g; try reflexivity; contradiction.
-    * destruct r2; try reflexivity.
-      destruct g; try reflexivity; contradiction.
-    * destruct (plug E (tgoal g s)) eqn:Eplug; try reflexivity.
-      destruct g0; try reflexivity.
-      exfalso.
-      destruct E; simpl in Eplug; try discriminate.
-      inversion Eplug; subst.
-      apply Hheadne.
-      reflexivity.
-    * destruct (plug E (tproceed n l s)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tconj r g)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjL r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjR r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tgoal g s)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; try discriminate.
-      destruct g; try discriminate. apply Hheadne. reflexivity.
-    * destruct (plug E (tproceed n l s)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tconj r g)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjL r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjR r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-  - destruct E; destruct r; simpl in *;
-    try reflexivity; try discriminate;
-    try (exfalso; apply Hheadne; reflexivity).
-    * destruct r1; try reflexivity.
-      destruct g; try reflexivity.
-      exfalso. apply Hheadne. reflexivity.
-    * destruct r2; try reflexivity.
-      destruct g; try reflexivity.
-      exfalso. apply Hheadne. reflexivity.
-    * destruct (plug E (tgoal g s)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      destruct E; simpl in Eplug; try discriminate.
-      destruct g; try discriminate.
-      exfalso. apply Hheadne. reflexivity.
-    * destruct (plug E (tproceed n l s)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tconj r g)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjL r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjR r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tgoal g s)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; try discriminate.
-      destruct g; try discriminate.
-      apply Hheadne. reflexivity.
-    * destruct (plug E (tproceed n l s)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tconj r g)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjL r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjR r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-  - destruct E; destruct r; simpl in *;
-    try reflexivity; 
-    try (exfalso; apply Hheadne; reflexivity);
-    try (first [ destruct g | destruct g0 | destruct r1 | destruct r2 ]; try reflexivity; exfalso; apply Hheadne; reflexivity).
-    * destruct g0; try reflexivity.
-      exfalso. apply Hheadne. reflexivity.
-    * destruct r1; try reflexivity.
-      exfalso. apply Hheadne. reflexivity.
-    * destruct r2; try reflexivity.
-      exfalso. apply Hheadne. reflexivity.
-    * destruct (plug E (tgoal g0 s)) eqn:Eplug;
-      try reflexivity. destruct g1; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; try discriminate.
-      destruct g0; try discriminate. apply Hheadne. reflexivity.
-    * destruct (plug E (tproceed n l s)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tconj r g0)) eqn:Eplug;
-      try reflexivity. destruct g1; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjL r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjR r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tgoal g0 s)) eqn:Eplug;
-      try reflexivity. destruct g1; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; try discriminate.
-      destruct g0; try discriminate. apply Hheadne. reflexivity.
-    * destruct (plug E (tproceed n l s)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tconj r g0)) eqn:Eplug;
-      try reflexivity. destruct g1; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjL r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-    * destruct (plug E (tdisjR r1 r2)) eqn:Eplug;
-      try reflexivity. destruct g0; try reflexivity.
-      exfalso. destruct E; simpl in Eplug; discriminate.
-Qed.
-
-Lemma plug_injective: forall E r1 r2,
+Lemma plug_injective : forall E r1 r2,
   plug E r1 = plug E r2 -> r1 = r2.
 Proof.
   induction E; simpl in *; intros.
@@ -197,91 +30,281 @@ Proof.
   1-3: apply IHE; inversion H; reflexivity.
 Qed.
 
+(* ================================================================== *)
+(*  Head does not fire on promote/delay shapes                         *)
+(* ================================================================== *)
 
-(* Unique decomposition *)
-Lemma unique_decomp : forall G E1 E2 r1 r2,
-  plug E1 r1 = plug E2 r2 ->
-  head G r1 <> None ->
-  head G r2 <> None ->
-  E1 = E2 /\ r1 = r2.
+Lemma Head_no_delay : forall G t r,
+  ~Head G (tdelay t) r.
 Proof.
-  intros G E1. revert G. induction E1; 
-  intros G E2 r1 r2 Hplug Hhead1 Hhead2; 
-  destruct E2; simpl in *; try discriminate.
-  - rewrite Hplug. split; reflexivity.
-  - exfalso. apply Hhead1. rewrite Hplug.
-    change (head G (plug (cdisjL E2 t) r2) = None).
-    apply plug_redex; [exact Hhead2 | discriminate].
-  - exfalso. apply Hhead1. rewrite Hplug.
-    change (head G (plug (cdisjR t E2) r2) = None).
-    apply plug_redex; [exact Hhead2 | discriminate].
-  - exfalso. apply Hhead1. rewrite Hplug.
-    change (head G (plug (cconj E2 g) r2) = None).
-    apply plug_redex; [exact Hhead2 | discriminate].
-  - exfalso. apply Hhead2. rewrite <- Hplug.
-    change (head G (plug (cdisjL E1 t) r1) = None).
-    apply plug_redex; [exact Hhead1 | discriminate].
-  - injection Hplug as Hinner Ht. subst.
-    destruct (IHE1 G E2 r1 r2 Hinner Hhead1 Hhead2) as [-> ->]; auto.
-  - exfalso. apply Hhead2. rewrite <- Hplug.
-    change (head G (plug (cdisjR t E1) r1) = None).
-    apply plug_redex; [exact Hhead1 | discriminate].
-  - injection Hplug as Ht Hinner. subst.
-    destruct (IHE1 G E2 r1 r2 Hinner Hhead1 Hhead2) as [-> ->]; auto.
-  - exfalso. apply Hhead2. rewrite <- Hplug.
-    change (head G (plug (cconj E1 g) r1) = None).
-    apply plug_redex; [exact Hhead1 | discriminate].
-  - injection Hplug as Hinner Hg. subst.
-    destruct (IHE1 G E2 r1 r2 Hinner Hhead1 Hhead2) as [-> ->]; auto.
+  intros G t r H. inversion H.
 Qed.
 
-(* S_ctx cannot fire when the tree's root is a promote/delay form *)
+Lemma Head_no_promoteL : forall G s t r,
+  ~Head G (tdisjL (tgoal gsucc s) t) r.
+Proof.
+  intros G s t r H. inversion H.
+Qed.
+
+Lemma Head_no_promoteR : forall G t s r,
+  ~Head G (tdisjR t (tgoal gsucc s)) r.
+Proof.
+  intros G t s r H. inversion H.
+Qed.
+
+(* ================================================================== *)
+(*  Plugging a redex into a non-hole context kills the redex           *)
+(* ================================================================== *)
+
+(** plug E r cannot match the shapes that Head inspects on its LHS. *)
+Lemma plug_neq_atomic : forall G E r r_out,
+  Head G r r_out ->
+  plug E r <> tfail /\
+  (forall d, plug E r <> tdelay d) /\
+  (forall sv tv, plug E r <> tdisjL (tgoal gsucc sv) tv) /\
+  (forall tv sv, plug E r <> tdisjR tv (tgoal gsucc sv)) /\
+  (forall sv, plug E r <> tgoal gsucc sv).
+Proof.
+  intros G E r r_out HHead.
+  induction E; simpl.
+  - repeat split.
+    + intro H. subst. inversion HHead.
+    + intros d H. subst. exact (Head_no_delay _ _ _ HHead).
+    + intros sv tv H. subst.  exact (Head_no_promoteL _ _ _ _ HHead).
+    + intros tv sv H. subst. exact (Head_no_promoteR _ _ _ _ HHead).
+    + intros sv H. subst. inversion HHead.
+  - destruct IHE as [_ [_ [_ [_ IH5]]]].
+    repeat split; try discriminate.
+    intros sv tv H. injection H as H1 _. exact (IH5 sv H1).
+  - destruct IHE as [_ [_ [_ [_ IH5]]]].
+    repeat split; try discriminate.
+    intros tv sv H. injection H as _ H2. exact (IH5 sv H2).
+  - repeat split; discriminate.
+Qed.
+
+Lemma Head_plug_stable : forall G E r r_out,
+  Head G r r_out -> E <> chole -> forall r', ~Head G (plug E r) r'.
+Proof.
+  intros G E r r_out HHead HNotHole r' Hplug.
+  destruct E; [contradiction | | |]; simpl in Hplug;
+  destruct (plug_neq_atomic G E r r_out HHead) as [Hf [Hd [Hll [Hlr Hg]]]];
+  inversion Hplug;
+  first [ apply Hf; congruence
+        | eapply Hd; congruence
+        | eapply Hll; congruence
+        | eapply Hlr; congruence
+        | eapply Hg; congruence ].
+Qed.
+
+(* ================================================================== *)
+(*  Unique decomposition                                                *)
+(* ================================================================== *)
+
+Lemma plug_head_contradiction : forall G E r r_out r' t,
+  Head G r r_out ->
+  E <> chole ->
+  plug E r = t ->
+  Head G t r' ->
+  False.
+Proof.
+  intros G E r r_out r' t HHead HNH Hplug Hhead.
+  apply (Head_plug_stable G E r r_out HHead HNH r').
+  rewrite Hplug.
+  exact Hhead.
+Qed.
+
+Lemma unique_decomp : forall G E1 E2 r1 r2,
+  plug E1 r1 = plug E2 r2 ->
+  (exists r1', Head G r1 r1') ->
+  (exists r2', Head G r2 r2') ->
+  E1 = E2 /\ r1 = r2.
+Proof.
+  intros G E1.
+  induction E1 as [| E1' IHE1 t1 | t1 E1' IHE1 | E1' IHE1 g1];
+  intros E2 r1 r2 Hplug Hhead1 Hhead2;
+  destruct E2 as [| E2' t2 | t2 E2' | E2' g2];
+  simpl in Hplug; try discriminate.
+
+  - (* chole / chole *)
+    split.
+    + reflexivity.
+    + exact Hplug.
+
+  - (* chole / cdisjL *)
+    exfalso.
+    destruct Hhead1 as [r1' Hhead1].
+    destruct Hhead2 as [r2' Hhead2].
+    apply (plug_head_contradiction G (cdisjL E2' t2) r2 r2' r1' r1).
+    + exact Hhead2.
+    + discriminate.
+    + simpl. exact (eq_sym Hplug).
+    + exact Hhead1.
+
+  - (* chole / cdisjR *)
+    exfalso.
+    destruct Hhead1 as [r1' Hhead1].
+    destruct Hhead2 as [r2' Hhead2].
+    apply (plug_head_contradiction G (cdisjR t2 E2') r2 r2' r1' r1).
+    + exact Hhead2.
+    + discriminate.
+    + simpl. exact (eq_sym Hplug).
+    + exact Hhead1.
+
+  - (* chole / cconj *)
+    exfalso.
+    destruct Hhead1 as [r1' Hhead1].
+    destruct Hhead2 as [r2' Hhead2].
+    apply (plug_head_contradiction G (cconj E2' g2) r2 r2' r1' r1).
+    + exact Hhead2.
+    + discriminate.
+    + simpl. exact (eq_sym Hplug).
+    + exact Hhead1.
+
+  - (* cdisjL / chole *)
+    exfalso.
+    destruct Hhead1 as [r1' Hhead1].
+    destruct Hhead2 as [r2' Hhead2].
+    apply (plug_head_contradiction G (cdisjL E1' t1) r1 r1' r2' r2).
+    + exact Hhead1.
+    + discriminate.
+    + simpl. exact Hplug.
+    + exact Hhead2.
+
+  - (* cdisjL / cdisjL *)
+    injection Hplug as Hinner Ht.
+    destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
+    split.
+    + rewrite HE, Ht. reflexivity.
+    + exact Hr.
+
+  - (* cdisjR / chole *)
+    exfalso.
+    destruct Hhead1 as [r1' Hhead1].
+    destruct Hhead2 as [r2' Hhead2].
+    apply (plug_head_contradiction G (cdisjR t1 E1') r1 r1' r2' r2).
+    + exact Hhead1.
+    + discriminate.
+    + simpl. exact Hplug.
+    + exact Hhead2.
+
+  - (* cdisjR / cdisjR *)
+    injection Hplug as Ht Hinner.
+    destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
+    split.
+    + rewrite HE, Ht. reflexivity.
+    + exact Hr.
+
+  - (* cconj / chole *)
+    exfalso.
+    destruct Hhead1 as [r1' Hhead1].
+    destruct Hhead2 as [r2' Hhead2].
+    apply (plug_head_contradiction G (cconj E1' g1) r1 r1' r2' r2).
+    + exact Hhead1.
+    + discriminate.
+    + simpl. exact Hplug.
+    + exact Hhead2.
+
+  - (* cconj / cconj *)
+    injection Hplug as Hinner Hg.
+    destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
+    split.
+    + rewrite HE, Hg. reflexivity.
+    + exact Hr.
+Qed.
+
+
+
+(* ================================================================== *)
+(*  S_ctx is incompatible with the other step shapes                   *)
+(* ================================================================== *)
+
 Lemma ctx_not_delay : forall G E r r' t,
-  head G r = Some r' -> plug E r = tdelay t -> False.
+  Head G r r' -> plug E r = tdelay t -> False.
 Proof.
   intros G E r r' t H Hplug.
   apply plug_eq_tdelay in Hplug. destruct Hplug as [-> ->].
-  rewrite head_tdelay_none in H. discriminate.
+  exact (Head_no_delay G t r' H).
 Qed.
 
 Lemma ctx_not_promoteL : forall G E r r' s t,
-  head G r = Some r' -> plug E r = tdisjL (tgoal gsucc s) t -> False.
+  Head G r r' -> plug E r = tdisjL (tgoal gsucc s) t -> False.
 Proof.
   intros G E r r' s t H Hplug.
   destruct E; simpl in Hplug; try discriminate.
-  - rewrite Hplug in H. rewrite head_promoteL_none in H. discriminate.
-  - injection Hplug as Hg _. apply plug_eq_tgoal in Hg.
-    destruct Hg as [_ ->]. simpl in H. discriminate.
+  - rewrite Hplug in H. exact (Head_no_promoteL G s t r' H).
+  - injection Hplug as Hg _.
+    apply plug_eq_tgoal in Hg. destruct Hg as [-> ->].
+    inversion H.
 Qed.
 
 Lemma ctx_not_promoteR : forall G E r r' t s,
-  head G r = Some r' -> plug E r = tdisjR t (tgoal gsucc s) -> False.
+  Head G r r' -> plug E r = tdisjR t (tgoal gsucc s) -> False.
 Proof.
   intros G E r r' t s H Hplug.
   destruct E; simpl in Hplug; try discriminate.
-  - rewrite Hplug in H. rewrite head_promoteR_none in H. discriminate.
-  - injection Hplug as _ Hg. apply plug_eq_tgoal in Hg.
-    destruct Hg as [_ ->]. simpl in H. discriminate.
+  - rewrite Hplug in H. exact (Head_no_promoteR G t s r' H).
+  - injection Hplug as _ Hg.
+    apply plug_eq_tgoal in Hg. destruct Hg as [-> ->].
+    inversion H.
 Qed.
 
-(* Determinism *)
+Local Ltac ctx_contra :=
+  exfalso;
+  match goal with
+  | H : (_, plug _ _) = (_, _) |- _ => injection H as _ H
+  | H : (_, _) = (_, plug _ _) |- _ => injection H as _ H; symmetry in H
+  end;
+  first [ eapply ctx_not_delay
+        | eapply ctx_not_promoteL
+        | eapply ctx_not_promoteR ];
+  eassumption.
+
+(* ================================================================== *)
+(*  Determinism                                                         *)
+(* ================================================================== *)
 Theorem step_deterministic : forall G e e1 e2,
   G |= e --> e1 ->
   G |= e --> e2 ->
   e1 = e2.
 Proof.
-  intros G [ans t] e1 e2 HstepE HstepE0.
-  inversion HstepE; subst; inversion HstepE0; subst;
-  try discriminate; try reflexivity.
-  - (* S_ctx / S_ctx *)
-    assert (Hne  : head G r  <> None) by (rewrite H2; discriminate).
-    assert (Hne0 : head G r0 <> None) by (rewrite H3; discriminate).
-    destruct (unique_decomp G E0 E r0 r H1 Hne0 Hne) as [-> ->].
-    rewrite H2 in H3. injection H3 as ->. reflexivity.
-  - exfalso. eapply ctx_not_delay;    [exact H2 | symmetry; exact H1].
-  - exfalso. eapply ctx_not_promoteL; [exact H2 | symmetry; exact H1].
-  - exfalso. eapply ctx_not_promoteR; [exact H2 | symmetry; exact H1].
-  - exfalso. eapply ctx_not_delay;    [exact H2 | exact H1].
-  - exfalso. eapply ctx_not_promoteL; [exact H2 | exact H1].
-  - exfalso. eapply ctx_not_promoteR; [exact H2 | exact H1].
+  intros. 
+  inversion H as 
+  [ ans1 E1 r1 r1' Hhead1 Hplug1 Hplug1'
+  | ans1 t1 Hdelay1 Hans1
+  | ans1 s1 t1 HdisjL1 Hans1
+  | ans1 s1 t1 HdisjR1 Hans1
+  ];
+  inversion H0 as 
+  [ ans2 E2 r2 r2' Hhead2 Hplug2 Hplug2'
+  | ans2 t2 Hdelay2 Hans2
+  | ans2 s2 t2 HdisjL2 Hans2
+  | ans2 s2 t2 HdisjR2 Hans2
+  ]; 
+  subst; simpl in *; try congruence.
+  - injection Hplug2 as Hans Hplug. apply eq_sym in Hplug. 
+    destruct (unique_decomp G E1 E2 r1 r2 Hplug).
+    * exists r1'. exact Hhead1.
+    * exists r2'. exact Hhead2.
+    * subst. destruct (Head_functional G r2 r1' r2' Hhead1 Hhead2).
+      reflexivity.
+    (*This could defintely be automated but I couldn't figure*)
+    (*out how with Ltac :( *)
+  - exfalso.
+    injection Hdelay2 as _ Heq. symmetry in Heq.
+    eapply ctx_not_delay; eassumption.
+  - exfalso. 
+    injection HdisjL2 as _ Heq. symmetry in Heq.
+    eapply ctx_not_promoteL; eassumption.
+  - exfalso. 
+    injection HdisjR2 as _ Heq. symmetry in Heq.
+    eapply ctx_not_promoteR; eassumption.
+  - exfalso.
+    injection Hplug2 as _ Heq.
+    eapply ctx_not_delay; eassumption.
+  - exfalso.
+    injection Hplug2 as _ Heq.
+    eapply ctx_not_promoteL; eassumption.
+  - exfalso. 
+    injection Hplug2 as _ Heq.
+    eapply ctx_not_promoteR; eassumption.
 Qed.
