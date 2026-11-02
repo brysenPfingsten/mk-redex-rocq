@@ -3,6 +3,7 @@
 src/Language/Terms.v
 src/Language/Goals.v
 src/Language/Substitution.v
+src/Language/Unification.v
 src/Language/Environments.v
 src/Language/Trees.v
 src/Semantics/Reduction.v
