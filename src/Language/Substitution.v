@@ -1,7 +1,9 @@
-From Stdlib Require Import List Arith Lia.
+From Stdlib Require Import List Arith.
 Import ListNotations.
 Require Import MkRedex.Language.Terms.
 Set Default Goal Selector "!".
+
+(* Substitutions *)
 
 Definition sub := list (nat * term).
 
@@ -10,6 +12,8 @@ Fixpoint lookup (x : nat) (s : sub) : option term :=
   | [] => None
   | (y, t) :: s' => if Nat.eqb x y then Some t else lookup x s'
   end.
+
+(* Walk *)
 
 Fixpoint walk_f (fuel : nat) (t : term) (s : sub) : term :=
   match fuel with
@@ -26,6 +30,22 @@ Fixpoint walk_f (fuel : nat) (t : term) (s : sub) : term :=
 
 Definition walk (t : term) (s : sub) : term := walk_f (S (List.length s)) t s.
 
+Inductive Walk (s : sub) : term -> term -> Prop :=
+  | W_free  : forall x, lookup x s = None -> Walk s (tvar x) (tvar x)
+  | W_bound : forall x u r, lookup x s = Some u -> Walk s u r -> Walk s (tvar x) r
+  | W_rigid : forall t, (forall x, t <> tvar x) -> Walk s t t.
+
+Lemma Walk_functional : forall s t out1 out2,
+  Walk s t out1 -> Walk s t out2 -> out1 = out2.
+Proof.
+  intros s t1 t2 out Ht1.
+  induction Ht1; intros Ht2; inversion Ht2; subst;
+  try reflexivity; try congruence.
+  apply IHHt1. rewrite -> H in H1. injection H1 as ->. exact H2.
+Qed.
+
+(* Occurs Check *)
+
 Fixpoint occurs (x : nat) (t : term) : bool :=
   match t with
   | tvar y => Nat.eqb x y
@@ -33,8 +53,17 @@ Fixpoint occurs (x : nat) (t : term) : bool :=
   | _ => false
   end.
 
-(** [apply_sub t s] walks [t] under [s] and recurses into [tcons] to
-    eliminate all logic variables.  Fuel bounds the recursion depth. *)
+Inductive DeepOccurs (s : sub) (x : nat) : term -> Prop :=
+  | DO_var  : DeepOccurs s x (tvar x)
+  | DO_walk : forall y t,
+      lookup y s = Some t ->
+      DeepOccurs s x t ->
+      DeepOccurs s x (tvar y)
+  | DO_cons_l : forall a b, DeepOccurs s x a -> DeepOccurs s x (tcons a b)
+  | DO_cons_r : forall a b, DeepOccurs s x b -> DeepOccurs s x (tcons a b).
+
+(* Apply Substitution *)
+
 Fixpoint apply_sub_f (fuel : nat) (t : term) (s : sub) : term :=
   match fuel with
   | 0 => walk t s
@@ -48,164 +77,400 @@ Fixpoint apply_sub_f (fuel : nat) (t : term) (s : sub) : term :=
 Definition apply_sub (t : term) (s : sub) : term :=
   apply_sub_f (List.length s) t s.
 
-(** A substitution is acyclic if there exists a variable ranking that strictly
-    decreases along every binding, guaranteeing that [walk] terminates before
-    exhausting its fuel. *)
+Inductive ApplySub (s : sub) : term -> term -> Prop :=
+  | AS_free  : forall x,
+      lookup x s = None ->
+      ApplySub s (tvar x) (tvar x)
+  | AS_bound : forall x u r,
+      lookup x s = Some u ->
+      ApplySub s u r ->
+      ApplySub s (tvar x) r
+  | AS_cons  : forall a b a' b',
+      ApplySub s a a' ->
+      ApplySub s b b' ->
+      ApplySub s (tcons a b) (tcons a' b')
+  | AS_rigid : forall t,
+      (forall x, t <> tvar x) ->
+      (forall a b, t <> tcons a b) ->
+      ApplySub s t t.
+
+Lemma ApplySub_functional : forall s t out1 out2,
+  ApplySub s t out1 -> ApplySub s t out2 -> out1 = out2.
+Proof.
+  intros s t out1 out2 Hout1. generalize dependent out2.
+  induction Hout1; intros out2 Hout2; inversion Hout2; subst;
+  try reflexivity; try congruence.
+  - apply IHHout1. rewrite -> H in H1. injection H1 as <-. exact H2.
+  - apply IHHout1_1 in H1 as <-. apply IHHout1_2 in H3 as <-. reflexivity.
+Qed.
+
+(* Acyclicity *)
+
 Definition acyclic_sub (s : sub) : Prop :=
-  exists rank : nat -> nat,
-    forall x t, lookup x s = Some t ->
-    forall y, occurs y t = true -> rank y < rank x.
+  well_founded (fun y x => exists t, lookup x s = Some t /\ occurs y t = true).
 
 Record state : Type := mkstate {
   st_sub : sub;
   st_cnt : nat
 }.
 
-(* ================================================================== *)
-(*  Unify — inductive unification relation                             *)
-(* ================================================================== *)
+(* UnifyW *)
 
-(** [Unify t1 t2 s r] means: unifying [t1] and [t2] under substitution [s]
-    yields result [r].  Each constructor first fixes the walked forms via
-    [walk t1 s] and [walk t2 s], then case-splits on their shapes.
+Inductive UnifyW : term -> term -> sub -> option sub -> Prop :=
 
-    A term is called "rigid" if it is neither a [tvar] nor a [tcons]. *)
-Inductive Unify : term -> term -> sub -> option sub -> Prop :=
+  | UW_var_same : forall x s,
+      UnifyW (tvar x) (tvar x) s (Some s)
 
-  (** Both walk to the same variable: identity. *)
-  | U_var_same : forall t1 t2 s x,
-      walk t1 s = tvar x ->
-      walk t2 s = tvar x ->
-      Unify t1 t2 s (Some s)
-
-  (** Left walks to [x], right walks to something other than [tvar x],
-      no occurs check fails: bind [x] to the right walk result. *)
-  | U_var_bind : forall t1 t2 s x u,
-      walk t1 s = tvar x ->
-      walk t2 s = u ->
+  | UW_var_bind : forall x u s,
+      lookup x s = None ->
       u <> tvar x ->
-      occurs x u = false ->
-      Unify t1 t2 s (Some ((x, u) :: s))
+      ~ DeepOccurs s x u ->
+      UnifyW (tvar x) u s (Some ((x, u) :: s))
 
-  (** Left walks to [x], right walks to something other than [tvar x],
-      occurs check fails: fail. *)
-  | U_var_fail : forall t1 t2 s x u,
-      walk t1 s = tvar x ->
-      walk t2 s = u ->
+  | UW_var_fail : forall x u s,
       u <> tvar x ->
-      occurs x u = true ->
-      Unify t1 t2 s None
+      DeepOccurs s x u ->
+      UnifyW (tvar x) u s None
 
-  (** Right walks to [y], left walks to a non-variable,
-      no occurs check fails: bind [y] to the left walk result. *)
-  | U_sym_bind : forall t1 t2 s y u,
-      walk t1 s = u ->
-      walk t2 s = tvar y ->
+  | UW_sym_bind : forall u y s,
+      lookup y s = None ->
       (forall z, u <> tvar z) ->
-      occurs y u = false ->
-      Unify t1 t2 s (Some ((y, u) :: s))
+      ~ DeepOccurs s y u ->
+      UnifyW u (tvar y) s (Some ((y, u) :: s))
 
-  (** Right walks to [y], left walks to a non-variable,
-      occurs check fails: fail. *)
-  | U_sym_fail : forall t1 t2 s y u,
-      walk t1 s = u ->
-      walk t2 s = tvar y ->
+  | UW_sym_fail : forall u y s,
       (forall z, u <> tvar z) ->
-      occurs y u = true ->
-      Unify t1 t2 s None
+      DeepOccurs s y u ->
+      UnifyW u (tvar y) s None
 
-  (** Both walk to [tcons]: unify first components; if that succeeds,
-      continue with second components in the extended substitution. *)
-  | U_cons_ok : forall t1 t2 s a1 a2 b1 b2 s1 r,
-      walk t1 s = tcons a1 a2 ->
-      walk t2 s = tcons b1 b2 ->
-      Unify a1 b1 s (Some s1) ->
-      Unify a2 b2 s1 r ->
-      Unify t1 t2 s r
+  | UW_cons_ok : forall a1 a2 b1 b2 s s1 r,
+      UnifyW a1 b1 s (Some s1) ->
+      UnifyW a2 b2 s1 r ->
+      UnifyW (tcons a1 a2) (tcons b1 b2) s r
 
-  (** Both walk to [tcons]: first component fails immediately. *)
-  | U_cons_fail : forall t1 t2 s a1 a2 b1 b2,
-      walk t1 s = tcons a1 a2 ->
-      walk t2 s = tcons b1 b2 ->
-      Unify a1 b1 s None ->
-      Unify t1 t2 s None
+  | UW_cons_fail : forall a1 a2 b1 b2 s,
+      UnifyW a1 b1 s None ->
+      UnifyW (tcons a1 a2) (tcons b1 b2) s None
 
-  (** Left walks to [tcons], right walks to a rigid term: clash. *)
-  | U_cons_clash_r : forall t1 t2 s a1 a2 v,
-      walk t1 s = tcons a1 a2 ->
-      walk t2 s = v ->
+  | UW_cons_clash_r : forall a1 a2 v s,
       (forall x, v <> tvar x) ->
       (forall c1 c2, v <> tcons c1 c2) ->
-      Unify t1 t2 s None
+      UnifyW (tcons a1 a2) v s None
 
-  (** Right walks to [tcons], left walks to a rigid term: clash. *)
-  | U_cons_clash_l : forall t1 t2 s u b1 b2,
-      walk t1 s = u ->
-      walk t2 s = tcons b1 b2 ->
+  | UW_cons_clash_l : forall u b1 b2 s,
       (forall x, u <> tvar x) ->
       (forall c1 c2, u <> tcons c1 c2) ->
-      Unify t1 t2 s None
+      UnifyW u (tcons b1 b2) s None
 
-  (** Both walk to the same rigid term: succeed. *)
-  | U_rigid_eq : forall t1 t2 s u,
-      walk t1 s = u ->
-      walk t2 s = u ->
+  | UW_rigid_eq : forall u s,
       (forall x, u <> tvar x) ->
       (forall a b, u <> tcons a b) ->
-      Unify t1 t2 s (Some s)
+      UnifyW u u s (Some s)
 
-  (** Both walk to different rigid terms: clash. *)
-  | U_rigid_neq : forall t1 t2 s u v,
-      walk t1 s = u ->
-      walk t2 s = v ->
+  | UW_rigid_neq : forall u v s,
       u <> v ->
       (forall x, u <> tvar x) ->
       (forall x, v <> tvar x) ->
       (forall a b, u <> tcons a b) ->
       (forall a b, v <> tcons a b) ->
-      Unify t1 t2 s None.
+      UnifyW u v s None.
 
-Hint Constructors Unify : core.
+Hint Constructors UnifyW : core.
 
-(* ================================================================== *)
-(*  Unify properties                                                   *)
-(* ================================================================== *)
+Definition Unify (t1 t2 : term) (s : sub) (r : option sub) : Prop :=
+  exists w1 w2, Walk s t1 w1 /\ Walk s t2 w2 /\ UnifyW w1 w2 s r.
 
-(** The result of [Unify] is uniquely determined by its inputs. *)
+Hint Unfold Unify : core.
+
+(* Functionality *)
+
+Lemma UnifyW_functional : forall w1 w2 s r r',
+  UnifyW w1 w2 s r -> UnifyW w1 w2 s r' -> r = r'.
+Proof.
+  intros w1 w2 s r r' H.
+  generalize dependent r'.
+  induction H as
+  [ | | | |
+  | a1 a2 b1 b2 sc s1 rc Hfst IHfst Hsnd IHsnd
+  | a1 a2 b1 b2 sc Hfst IHfst
+  | | | | ];
+  intros r' H';
+  inversion H' as
+  [ | | | |
+  | a1' a2' b1' b2' sc' s1' rc' Hfst' IHfst' Hsnd' IHsnd'
+  | a1' a2' b1' b2' sc' Hfst' IHfst'
+  | | | | ];
+  subst;
+  try reflexivity; try congruence;
+  try (exfalso; match goal with H : forall _ _, _ <> tcons _ _ |- _ => exact (H _ _ eq_refl) end);
+  try (exfalso; match goal with H : forall _, tvar _ <> tvar _ |- _ => exact (H _ eq_refl) end).
+  - apply IHfst in Hfst'. injection Hfst' as <-.
+    apply IHsnd in IHfst'. exact IHfst'.
+  - exfalso. apply IHfst in Hfst'. inversion Hfst'.
+  - exfalso. apply IHfst in Hfst'. inversion Hfst'.
+Qed.
+
 Lemma Unify_functional : forall t1 t2 s r r',
   Unify t1 t2 s r -> Unify t1 t2 s r' -> r = r'.
-Proof. 
-  intros t1 t2 s r r' H_Unify_r.
-  generalize dependent r'.
-  induction H_Unify_r; intros r' H_Unify_r'; inversion H_Unify_r';
-  try reflexivity; try congruence; subst;
-  rewrite H in H1; injection H1 as <- <-;
-  rewrite H0 in H2; injection H2 as <- <-.
-  - apply IHH_Unify_r1 in H3.
-    injection H3 as <-.
-    apply IHH_Unify_r2. exact H4.
-  - apply IHH_Unify_r1 in H3.
-    inversion H3.
-  - apply IHH_Unify_r in H3. discriminate.
+Proof.
+  unfold Unify. intros.
+  destruct H as (w1 & w2 & Hw1 & Hw2 & Hu),
+           H0 as (w1' & w2' & Hw1' & Hw2' & Hu').
+  rewrite (Walk_functional _ _ _ _ Hw1 Hw1') in Hu.
+  rewrite (Walk_functional _ _ _ _ Hw2 Hw2') in Hu.
+  exact (UnifyW_functional _ _ _ _ _ Hu Hu').
 Qed.
-    
 
-(** A successful [Unify] extends the substitution: [s] is a suffix of [s']. *)
-Lemma Unify_extends : forall t1 t2 s s',
-  Unify t1 t2 s (Some s') -> exists prefix, s' = prefix ++ s.
-Proof. Admitted.
+(* Structural Properties *)
 
-  
+Lemma UnifyW_extends : forall w1 w2 s r,
+  UnifyW w1 w2 s r ->
+  forall s', r = Some s' -> exists prefix, s' = prefix ++ s.
+Proof.
+  intros w1 w2 s r H.
+  induction H; intros s' Hr; inversion Hr; subst.
+  - exists []. reflexivity.
+  - exists [(x, u)]. reflexivity.
+  - exists [(y, u)]. reflexivity.
+  - destruct (IHUnifyW1 s1 eq_refl) as [p1 Hp1].
+    destruct (IHUnifyW2 s' eq_refl) as [p2 Hp2].
+    rewrite Hp1 in Hp2. exists (p2 ++ p1).
+    rewrite <- app_assoc. exact Hp2.
+  - exists []. reflexivity.
+Qed.
 
-(** A successful [Unify] on an acyclic substitution yields an acyclic
-    substitution. *)
+Lemma Unify_extends : forall t1 t2 s r,
+  Unify t1 t2 s r ->
+  forall s', r = Some s' -> exists prefix, s' = prefix ++ s.
+Proof.
+  unfold Unify. intros t1 t2 s r Hu s' Hr.
+  destruct Hu as (w1 & w2 & _ & _ & Hu).
+  exact (UnifyW_extends _ _ _ _ Hu s' Hr).
+Qed.
+
+Lemma UnifyW_norebind : forall w1 w2 s r,
+  UnifyW w1 w2 s r ->
+  forall s', r = Some s' ->
+  forall z t, lookup z s = Some t -> lookup z s' = Some t.
+Proof.
+  intros w1 w2 s r Hunify.
+  induction Hunify; intros s'' Hr z t Hz; inversion Hr; subst.
+  - exact Hz.
+  - simpl. destruct (Nat.eqb_spec z x) as [-> | ]; [congruence | exact Hz].
+  - simpl. destruct (Nat.eqb_spec z y) as [-> | ]; [congruence | exact Hz].
+  - exact (IHHunify2 s'' eq_refl z t (IHHunify1 s1 eq_refl z t Hz)).
+  - exact Hz.
+Qed.
+
+Lemma lookup_app_r : forall (x : nat) (prefix s : sub),
+  lookup x prefix = None ->
+  lookup x (prefix ++ s) = lookup x s.
+Proof.
+  intros x prefix. induction prefix as [| [y t] rest IH]; intros s Hpre; simpl in *.
+  - reflexivity.
+  - destruct (Nat.eqb x y); [discriminate | exact (IH s Hpre)].
+Qed.
+
+Lemma ApplySub_suffix_extend : forall s s',
+  (forall x t, lookup x s = Some t -> lookup x s' = Some t) ->
+  forall t r, ApplySub s' t r ->
+  exists v, ApplySub s t v /\ ApplySub s' v r.
+Proof.
+  intros s s' Hext t r Happ.
+  induction Happ as [x Hfree | x u r Hlook Hsubu IHsubu
+                    | a b a' b' Ha IHa Hb IHb
+                    | t Hnotvar Hnotcons].
+  - assert (Hs : lookup x s = None). {
+      destruct (lookup x s) as [u|] eqn:Heq; [| reflexivity].
+      pose proof (Hext x u Heq). congruence. }
+    exists (tvar x). exact (conj (AS_free s x Hs) (AS_free s' x Hfree)).
+  - destruct IHsubu as [v_u [Hv_u_s Hv_u_s']].
+    destruct (lookup x s) as [u1|] eqn:Hs_x.
+    + rewrite (Hext x u1 Hs_x) in Hlook. injection Hlook as ->.
+      exists v_u. exact (conj (AS_bound s x u v_u Hs_x Hv_u_s) Hv_u_s').
+    + exists (tvar x). exact (conj (AS_free s x Hs_x) (AS_bound s' x u r Hlook Hsubu)).
+  - destruct IHa as [va [Hsa Hs'a]], IHb as [vb [Hsb Hs'b]].
+    exists (tcons va vb).
+    exact (conj (AS_cons s a b va vb Hsa Hsb) (AS_cons s' va vb a' b' Hs'a Hs'b)).
+  - exists t. exact (conj (AS_rigid s t Hnotvar Hnotcons) (AS_rigid s' t Hnotvar Hnotcons)).
+Qed.
+
+Lemma Walk_ApplySub_compat : forall s t w,
+  Walk s t w ->
+  forall s', (forall x u, lookup x s = Some u -> lookup x s' = Some u) ->
+  forall r, ApplySub s' t r -> ApplySub s' w r.
+Proof.
+  intros s t w Hwalk.
+  induction Hwalk as [x Hfree | x u w Hlook _ IH | t Hnotvar];
+  intros s' Hext r Happ.
+  - exact Happ.
+  - assert (Hx' : lookup x s' = Some u) by exact (Hext x u Hlook).
+    inversion Happ; subst.
+    + congruence.
+    + match goal with H1 : lookup x s' = Some ?u0, H2 : ApplySub s' ?u0 r |- _ =>
+        rewrite Hx' in H1; injection H1 as <-; exact (IH s' Hext r H2) end.
+    + exfalso; match goal with H : forall _ : nat, tvar _ <> tvar _ |- _ =>
+        exact (H x eq_refl) end.
+  - exact Happ.
+Qed.
+
+(* Acyclicity Preservation *)
+
+Lemma occurs_trans_DeepOccurs : forall s x c t,
+  occurs c t = true -> DeepOccurs s x (tvar c) -> DeepOccurs s x t.
+Proof.
+  intros s x c. induction t; simpl; intros H HDO; try discriminate H.
+  - apply Nat.eqb_eq in H. subst. exact HDO.
+  - destruct (occurs c t1) eqn:H1.
+    + apply DO_cons_l. exact (IHt1 eq_refl HDO).
+    + simpl in H. apply DO_cons_r. exact (IHt2 H HDO).
+Qed.
+
+Lemma UnifyW_acyclic_gen : forall w1 w2 s r,
+  UnifyW w1 w2 s r ->
+  acyclic_sub s ->
+  forall s', r = Some s' -> acyclic_sub s'.
+Proof.
+  unfold acyclic_sub.
+  intros w1 w2 s r Hunify.
+  induction Hunify; intros Hacyclic s'' Hr; inversion Hr; subst.
+  - exact Hacyclic.
+  - assert (step_E : forall a,
+        ~ DeepOccurs s x (tvar a) ->
+        Acc (fun y z => exists t, lookup z ((x, u) :: s) = Some t /\ occurs y t = true) a).
+    { apply (well_founded_ind Hacyclic (fun a =>
+          ~ DeepOccurs s x (tvar a) ->
+          Acc (fun y z => exists t, lookup z ((x, u) :: s) = Some t /\ occurs y t = true) a)).
+      intros a IH HnDO.
+      assert (Hax : a <> x) by (intro Heq; subst; exact (HnDO (DO_var s x))).
+      apply Acc_intro. intros c (ta & Hla & Hoc).
+      simpl in Hla. rewrite (proj2 (Nat.eqb_neq a x) Hax) in Hla.
+      assert (HnDOt : ~ DeepOccurs s x ta)
+        by (intro Hd; exact (HnDO (DO_walk s x a ta Hla Hd))).
+      apply (IH c (ex_intro _ ta (conj Hla Hoc))).
+      intro Hdc; exact (HnDOt (occurs_trans_DeepOccurs s x c ta Hoc Hdc)). }
+    assert (acc_x :
+        Acc (fun y z => exists t, lookup z ((x, u) :: s) = Some t /\ occurs y t = true) x).
+    { apply Acc_intro. intros c (tx & Hlx & Hoc).
+      simpl in Hlx. rewrite Nat.eqb_refl in Hlx. simpl in Hlx. injection Hlx as <-.
+      apply step_E.
+      intro Hdc; exact (H1 (occurs_trans_DeepOccurs s x c u Hoc Hdc)). }
+    intro a. destruct (Nat.eqb_spec a x) as [-> | Hax].
+    + exact acc_x.
+    + revert a Hax.
+      apply (well_founded_ind Hacyclic (fun a => a <> x ->
+          Acc (fun y z => exists t, lookup z ((x, u) :: s) = Some t /\ occurs y t = true) a)).
+      intros a IH Hax.
+      apply Acc_intro. intros c (ta & Hla & Hoc).
+      simpl in Hla. rewrite (proj2 (Nat.eqb_neq a x) Hax) in Hla.
+      destruct (Nat.eqb_spec c x) as [-> | Hcx].
+      * exact acc_x.
+      * exact (IH c (ex_intro _ ta (conj Hla Hoc)) Hcx).
+  - assert (step_E : forall a,
+        ~ DeepOccurs s y (tvar a) ->
+        Acc (fun c z => exists t, lookup z ((y, u) :: s) = Some t /\ occurs c t = true) a).
+    { apply (well_founded_ind Hacyclic (fun a =>
+          ~ DeepOccurs s y (tvar a) ->
+          Acc (fun c z => exists t, lookup z ((y, u) :: s) = Some t /\ occurs c t = true) a)).
+      intros a IH HnDO.
+      assert (Hay : a <> y) by (intro Heq; subst; exact (HnDO (DO_var s y))).
+      apply Acc_intro. intros c (ta & Hla & Hoc).
+      simpl in Hla. rewrite (proj2 (Nat.eqb_neq a y) Hay) in Hla.
+      assert (HnDOt : ~ DeepOccurs s y ta)
+        by (intro Hd; exact (HnDO (DO_walk s y a ta Hla Hd))).
+      apply (IH c (ex_intro _ ta (conj Hla Hoc))).
+      intro Hdc; exact (HnDOt (occurs_trans_DeepOccurs s y c ta Hoc Hdc)). }
+    assert (acc_y :
+        Acc (fun c z => exists t, lookup z ((y, u) :: s) = Some t /\ occurs c t = true) y).
+    { apply Acc_intro. intros c (ty & Hly & Hoc).
+      simpl in Hly. rewrite Nat.eqb_refl in Hly. simpl in Hly. injection Hly as <-.
+      apply step_E.
+      intro Hdc; exact (H1 (occurs_trans_DeepOccurs s y c u Hoc Hdc)). }
+    intro a. destruct (Nat.eqb_spec a y) as [-> | Hay].
+    + exact acc_y.
+    + revert a Hay.
+      apply (well_founded_ind Hacyclic (fun a => a <> y ->
+          Acc (fun c z => exists t, lookup z ((y, u) :: s) = Some t /\ occurs c t = true) a)).
+      intros a IH Hay.
+      apply Acc_intro. intros c (ta & Hla & Hoc).
+      simpl in Hla. rewrite (proj2 (Nat.eqb_neq a y) Hay) in Hla.
+      destruct (Nat.eqb_spec c y) as [-> | Hcy].
+      * exact acc_y.
+      * exact (IH c (ex_intro _ ta (conj Hla Hoc)) Hcy).
+  - apply IHHunify2.
+    + exact (IHHunify1 Hacyclic s1 eq_refl).
+    + reflexivity.
+  - exact Hacyclic.
+Qed.
+
+Lemma UnifyW_acyclic : forall w1 w2 s s',
+  acyclic_sub s -> UnifyW w1 w2 s (Some s') -> acyclic_sub s'.
+Proof.
+  intros w1 w2 s s' Hacyclic Hunify.
+  exact (UnifyW_acyclic_gen w1 w2 s (Some s') Hunify Hacyclic s' eq_refl).
+Qed.
+
 Lemma Unify_acyclic : forall t1 t2 s s',
   acyclic_sub s -> Unify t1 t2 s (Some s') -> acyclic_sub s'.
-Proof. Admitted.
+Proof.
+  intros t1 t2 s s' Hacyclic Hunify.
+  destruct Hunify as (w1 & w2 & Hw1 & Hw2 & Hu).
+  exact (UnifyW_acyclic w1 w2 s s' Hacyclic Hu).
+Qed.
 
-(** Soundness: if [Unify t1 t2 s (Some s')], then [s'] unifies [t1] and [t2]
-    under deep application. *)
+(* Soundness *)
+
+Lemma UnifyW_sound_gen : forall w1 w2 s r,
+  UnifyW w1 w2 s r ->
+  acyclic_sub s ->
+  forall s', r = Some s' ->
+  forall r1 r2, ApplySub s' w1 r1 -> ApplySub s' w2 r2 -> r1 = r2.
+Proof.
+  intros w1 w2 s r Hunify.
+  induction Hunify; intros Hacyclic s'' Hr r1 r2 HApp1 HApp2; inversion Hr; subst.
+  - exact (ApplySub_functional _ _ _ _ HApp1 HApp2).
+  - assert (Hlu : lookup x ((x, u) :: s) = Some u) by (simpl; rewrite Nat.eqb_refl; reflexivity).
+    inversion HApp1; subst; try congruence.
+    match goal with H1 : lookup x ((x, u) :: s) = Some ?u0, H2 : ApplySub _ ?u0 r1 |- _ =>
+      rewrite Hlu in H1; injection H1 as <-; exact (ApplySub_functional _ _ _ _ H2 HApp2) end.
+  - assert (Hly : lookup y ((y, u) :: s) = Some u) by (simpl; rewrite Nat.eqb_refl; reflexivity).
+    inversion HApp2; subst; try congruence.
+    match goal with H1 : lookup y ((y, u) :: s) = Some ?u0, H2 : ApplySub _ ?u0 r2 |- _ =>
+      rewrite Hly in H1; injection H1 as <-; exact (ApplySub_functional _ _ _ _ HApp1 H2) end.
+  - assert (Hs1 : acyclic_sub s1) by exact (UnifyW_acyclic_gen _ _ _ _ Hunify1 Hacyclic s1 eq_refl).
+    inversion HApp1 as [| | ? ? ra1 ra2 H1a H1b |]; subst.
+    2: { exfalso; match goal with H : forall _ _, _ <> tcons _ _ |- _ => exact (H _ _ eq_refl) end. }
+    inversion HApp2 as [| | ? ? rb1 rb2 H2a H2b |]; subst.
+    2: { exfalso; match goal with H : forall _ _, _ <> tcons _ _ |- _ => exact (H _ _ eq_refl) end. }
+    assert (Heq2 : ra2 = rb2) by exact (IHHunify2 Hs1 s'' eq_refl _ _ H1b H2b).
+    assert (Heq1 : ra1 = rb1). {
+      assert (Hext : forall x t, lookup x s1 = Some t -> lookup x s'' = Some t) by
+        exact (UnifyW_norebind _ _ _ _ Hunify2 s'' eq_refl).
+      destruct (ApplySub_suffix_extend s1 s'' Hext a1 ra1 H1a) as [v1 [Hv1_s1 Hv1_s'']].
+      destruct (ApplySub_suffix_extend s1 s'' Hext b1 rb1 H2a) as [v2 [Hv2_s1 Hv2_s'']].
+      assert (v1 = v2) by exact (IHHunify1 Hacyclic s1 eq_refl v1 v2 Hv1_s1 Hv2_s1).
+      subst v2. exact (ApplySub_functional _ _ _ _ Hv1_s'' Hv2_s''). }
+    subst. reflexivity.
+  - exact (ApplySub_functional _ _ _ _ HApp1 HApp2).
+Qed.
+
+Lemma UnifyW_sound : forall w1 w2 s s',
+  acyclic_sub s -> UnifyW w1 w2 s (Some s') ->
+  forall r1 r2, ApplySub s' w1 r1 -> ApplySub s' w2 r2 -> r1 = r2.
+Proof.
+  intros w1 w2 s s' Hacyclic Hunify.
+  exact (UnifyW_sound_gen w1 w2 s (Some s') Hunify Hacyclic s' eq_refl).
+Qed.
+
 Lemma Unify_sound : forall t1 t2 s s',
   acyclic_sub s -> Unify t1 t2 s (Some s') ->
-  apply_sub t1 s' = apply_sub t2 s'.
-Proof. Admitted.
+  forall r1 r2, ApplySub s' t1 r1 -> ApplySub s' t2 r2 -> r1 = r2.
+Proof.
+  intros t1 t2 s s' Hacyclic Hunify r1 r2 HApp1 HApp2.
+  destruct Hunify as (w1 & w2 & Hw1 & Hw2 & Hu).
+  assert (Hext : forall x u, lookup x s = Some u -> lookup x s' = Some u) by
+    exact (UnifyW_norebind _ _ _ _ Hu s' eq_refl).
+  apply (Walk_ApplySub_compat s t1 w1 Hw1 s' Hext) in HApp1.
+  apply (Walk_ApplySub_compat s t2 w2 Hw2 s' Hext) in HApp2.
+  exact (UnifyW_sound w1 w2 s s' Hacyclic Hu r1 r2 HApp1 HApp2).
+Qed.
