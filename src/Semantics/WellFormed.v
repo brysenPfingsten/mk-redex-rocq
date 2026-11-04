@@ -12,6 +12,33 @@ Fixpoint closed_term (d c : nat) (t : term) : Prop :=
   | _         => True
   end.
 
+(** Operational opening arguments cannot contain a bound parameter index.
+    In particular, an argument inserted beneath [gfresh] cannot be captured. *)
+Fixpoint tpar_free (t : term) : Prop :=
+  match t with
+  | tpar _ => False
+  | tcons a b => tpar_free a /\ tpar_free b
+  | _ => True
+  end.
+
+Lemma closed_term_zero_tpar_free : forall c t,
+  closed_term 0 c t -> tpar_free t.
+Proof.
+  intros c t. induction t; simpl; try easy.
+  intros [Ha Hb]. split; [apply IHt1 | apply IHt2]; assumption.
+Qed.
+
+Definition runtime_open_args (c : nat) (args : list term) : Prop :=
+  Forall (closed_term 0 c) args.
+
+Lemma runtime_open_args_tpar_free : forall c args,
+  runtime_open_args c args -> Forall tpar_free args.
+Proof.
+  intros c args Hargs. apply Forall_forall.
+  intros t Hin. apply closed_term_zero_tpar_free with (c := c).
+  eapply Forall_forall; eassumption.
+Qed.
+
 Fixpoint closed_sub (c : nat) (s : sub) : Prop :=
   match s with
   | []           => True
@@ -74,6 +101,24 @@ Definition closed_env (G : env) : Prop :=
 
 Definition closed_expr (G : env) (c : nat) (e : expr) : Prop :=
   closed_tree G c (snd e).
+
+(** A pending relation call in a closed runtime tree supplies arguments
+    closed at parameter depth zero. *)
+Lemma closed_tree_proceed_open_args : forall G c r ts s,
+  closed_tree G c (tproceed r ts s) -> runtime_open_args c ts.
+Proof.
+  intros G c r ts s Hclosed. simpl in Hclosed.
+  destruct (nth_error G r) as [[n body]|]; [|contradiction].
+  exact (proj1 (proj2 (proj2 Hclosed))).
+Qed.
+
+Lemma closed_goal_relcall_open_args : forall G c r ts,
+  closed_goal G 0 c (grelcall r ts) -> runtime_open_args c ts.
+Proof.
+  intros G c r ts Hclosed. simpl in Hclosed.
+  destruct (nth_error G r) as [[n body]|]; [|contradiction].
+  exact (proj2 Hclosed).
+Qed.
 
 Lemma open_term_closed : forall d c t args,
   closed_term (length args + d) c t ->
@@ -181,6 +226,15 @@ Proof.
         exact Ht.
       + exact H2.
 Qed.
+
+(** This is the opening rule used by both [H_proceed] and [H_fresh].
+    [runtime_open_args] entails [tpar_free] for every argument, including
+    when [open_goal] descends beneath nested [gfresh] binders. *)
+Lemma open_runtime_closed : forall G c g args,
+  closed_goal G (length args) c g ->
+  runtime_open_args c args ->
+  closed_goal G 0 c (open args g).
+Proof. exact open_closed. Qed.
 
 Lemma closed_sub_mono : forall c c' s,
   c <= c' -> closed_sub c s -> closed_sub c' s.
@@ -373,6 +427,18 @@ Proof.
   apply in_seq in Hi. simpl. lia.
 Qed.
 
+Lemma fresh_args_open_args : forall start bound k,
+  start <= bound ->
+  runtime_open_args (bound + k) (map tvar (seq start k)).
+Proof. exact fresh_args_closed. Qed.
+
+Corollary fresh_args_tpar_free : forall start k,
+  Forall tpar_free (map tvar (seq start k)).
+Proof.
+  intros start k. apply runtime_open_args_tpar_free with (c := start + k).
+  apply fresh_args_open_args. lia.
+Qed.
+
 Lemma Head_closed : forall G c t t',
   closed_env G -> closed_tree G c t -> Head G t t' ->
   exists c', closed_tree G c' t'.
@@ -425,6 +491,21 @@ Inductive state_in : tree -> state -> Prop :=
 
 Hint Constructors state_in : core.
 
+Lemma closed_tree_state_counter : forall G c t s,
+  closed_tree G c t -> state_in t s -> st_cnt s <= c.
+Proof.
+  intros G c t s Hclosed Hin. revert c Hclosed.
+  induction Hin; intros c Hclosed; simpl in Hclosed.
+  - lia.
+  - apply IHHin. exact Hclosed.
+  - destruct (nth_error G r) as [[n body]|]; [lia | contradiction].
+  - apply IHHin. exact (proj1 Hclosed).
+  - apply IHHin. exact (proj1 Hclosed).
+  - apply IHHin. exact (proj2 Hclosed).
+  - apply IHHin. exact (proj1 Hclosed).
+  - apply IHHin. exact (proj2 Hclosed).
+Qed.
+
 Fixpoint tight_tree (G : env) (t : tree) : Prop :=
   match t with
   | tfail           => True
@@ -437,6 +518,40 @@ Fixpoint tight_tree (G : env) (t : tree) : Prop :=
   | tdisjL t1 t2    => tight_tree G t1 /\ tight_tree G t2
   | tdisjR t1 t2    => tight_tree G t1 /\ tight_tree G t2
   end.
+
+(** At the initial global bound zero, every state counter is zero, so
+    global closure also supplies each local tightness obligation. *)
+Lemma closed_tree_zero_tight : forall G t,
+  closed_tree G 0 t -> tight_tree G t.
+Proof.
+  intros G t. induction t; simpl; intros Hclosed.
+  - exact I.
+  - destruct Hclosed as [Hcnt [Hg Hsub]].
+    assert (st_cnt s = 0) by lia. rewrite H. split; assumption.
+  - apply IHt. exact Hclosed.
+  - destruct (nth_error G n) as [[arity body]|]; [|contradiction].
+    destruct Hclosed as [Hcnt [Hlen [Hargs Hsub]]].
+    assert (st_cnt s = 0) by lia. rewrite H. split; assumption.
+  - destruct Hclosed as [Htree Hg]. split.
+    + apply IHt. exact Htree.
+    + intros s Hin.
+      assert (st_cnt s = 0) by
+        (pose proof (closed_tree_state_counter G 0 t s Htree Hin); lia).
+      rewrite H. exact Hg.
+  - destruct Hclosed as [H1 H2]. split; [apply IHt1 | apply IHt2]; assumption.
+  - destruct Hclosed as [H1 H2]. split; [apply IHt1 | apply IHt2]; assumption.
+Qed.
+
+Lemma tight_tree_proceed_open_args : forall G r ts s,
+  tight_tree G (tproceed r ts s) -> runtime_open_args (st_cnt s) ts.
+Proof. intros G r ts s Htight. exact (proj2 Htight). Qed.
+
+Corollary tight_tree_proceed_tpar_free : forall G r ts s,
+  tight_tree G (tproceed r ts s) -> Forall tpar_free ts.
+Proof.
+  intros G r ts s Htight. apply runtime_open_args_tpar_free with (c := st_cnt s).
+  exact (tight_tree_proceed_open_args G r ts s Htight).
+Qed.
 
 (* The tight sub for a success state follows directly. *)
 Lemma tight_tgoal_sub : forall G g s,
@@ -655,6 +770,27 @@ Definition ok_expr (G : env) (e : expr) : Prop :=
   tight_tree G (snd e) /\
   Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e).
 
+Lemma closed_program_env : forall G e,
+  closed_program G e -> closed_env G.
+Proof.
+  intros G e [Hdefs _] r n body Hlook.
+  rewrite Forall_forall in Hdefs.
+  assert (Hin : In (n, body) G) by (eapply nth_error_In; exact Hlook).
+  exact (Hdefs (n, body) Hin).
+Qed.
+
+Theorem closed_program_ok : forall G e,
+  closed_program G e -> closed_env G /\ ok_expr G e.
+Proof.
+  intros G e Hprogram. split.
+  - exact (closed_program_env G e Hprogram).
+  - destruct Hprogram as [_ [Htree Hans]].
+    repeat split.
+    + exists 0. exact Htree.
+    + exact (closed_tree_zero_tight G (snd e) Htree).
+    + exact Hans.
+Qed.
+
 Lemma step_ok : forall G e e',
   closed_env G -> ok_expr G e -> G |= e --> e' -> ok_expr G e'.
 Proof.
@@ -711,4 +847,12 @@ Proof.
   induction Hmulti.
   - exact Hok.
   - apply IHHmulti. exact (step_ok G e1 e2 HG Hok H).
+Qed.
+
+Corollary closed_program_multi_ok : forall G e e',
+  closed_program G e -> multi G e e' -> ok_expr G e'.
+Proof.
+  intros G e e' Hprogram Hmulti.
+  destruct (closed_program_ok G e Hprogram) as [Henv Hok].
+  exact (multi_ok G e e' Hmulti Henv Hok).
 Qed.
