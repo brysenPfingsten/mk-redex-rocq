@@ -15,6 +15,16 @@ Inductive tree : Type :=
 
 Definition expr : Type := (list state * tree)%type.
 
+(** Answers already promoted into the list, plus a final top-level success. *)
+Definition final_answer (t : tree) : list state :=
+  match t with
+  | tgoal gsucc s => [s]
+  | _ => []
+  end.
+
+Definition observed_answers (e : expr) : list state :=
+  fst e ++ final_answer (snd e).
+
 Definition is_value (e : expr) : Prop :=
   match snd e with
   | tfail => True

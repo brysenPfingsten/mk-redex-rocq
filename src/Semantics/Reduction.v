@@ -133,9 +133,45 @@ where "G '|=' e '-->' e'" := (step G e e').
 
 Hint Constructors step : core.
 
+(** A step can add an answer, but never retract an observed answer. *)
+Lemma Head_source_no_final_answer : forall G r r',
+  Head G r r' -> final_answer r = [].
+Proof.
+  intros G r r' Hhead. inversion Hhead; reflexivity.
+Qed.
+
+Lemma step_observed_answers_prefix : forall G e e',
+  G |= e --> e' ->
+  exists added, observed_answers e' = observed_answers e ++ added.
+Proof.
+  intros G e e' Hstep. destruct Hstep; unfold observed_answers; simpl.
+  - assert (Hsrc : final_answer (plug E r) = []). {
+      destruct E; simpl; try reflexivity.
+      exact (Head_source_no_final_answer G r r' H).
+    }
+    rewrite Hsrc. exists (final_answer (plug E r')).
+    rewrite app_nil_r. reflexivity.
+  - exists (final_answer t). rewrite app_nil_r. reflexivity.
+  - exists (s :: final_answer t).
+    rewrite app_nil_r. induction ans as [|a ans IH]; simpl; congruence.
+  - exists (s :: final_answer t).
+    rewrite app_nil_r. induction ans as [|a ans IH]; simpl; congruence.
+Qed.
+
 Inductive multi (G : env) : expr -> expr -> Prop :=
   | multi_refl : forall e, multi G e e
   | multi_step : forall e1 e2 e3,
       G |= e1 --> e2 -> multi G e2 e3 -> multi G e1 e3.
 
 Hint Constructors multi : core.
+
+Lemma multi_observed_answers_prefix : forall G e e',
+  multi G e e' ->
+  exists added, observed_answers e' = observed_answers e ++ added.
+Proof.
+  intros G e e' Hmulti. induction Hmulti.
+  - exists []. rewrite app_nil_r. reflexivity.
+  - destruct (step_observed_answers_prefix G e1 e2 H) as [a Ha].
+    destruct IHHmulti as [b Hb].
+    exists (a ++ b). rewrite Hb, Ha, app_assoc. reflexivity.
+Qed.
