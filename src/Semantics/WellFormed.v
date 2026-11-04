@@ -6,14 +6,10 @@ Set Default Goal Selector "!".
 
 Fixpoint closed_term (d c : nat) (t : term) : Prop :=
   match t with
-  | tnil      => True
   | tvar n    => n < c
   | tpar i    => i < d
-  | tsym _    => True
-  | tstr _    => True
-  | tnat _    => True
-  | tbool _   => True
   | tcons a b => closed_term d c a /\ closed_term d c b
+  | _         => True
   end.
 
 Fixpoint closed_sub (c : nat) (s : sub) : Prop :=
@@ -33,8 +29,16 @@ Fixpoint closed_goal (G : env) (d c : nat) (g : goal) : Prop :=
       end
   | gdisj g1 g2  => closed_goal G d c g1 /\ closed_goal G d c g2
   | gconj g1 g2  => closed_goal G d c g1 /\ closed_goal G d c g2
-  | gfresh k g1  => closed_goal G (d + k) (c + k) g1
+  | gfresh k g1  => closed_goal G (d + k) c g1
   end.
+
+Example fresh_binds_parameter_index :
+  closed_goal [] 0 0 (gfresh 1 (gunify (tpar 0) tnil)).
+Proof. simpl. lia. Qed.
+
+Example fresh_does_not_preallocate_logic_variable :
+  ~ closed_goal [] 0 0 (gfresh 1 (gunify (tvar 0) tnil)).
+Proof. simpl. lia. Qed.
 
 Fixpoint closed_tree (G : env) (c : nat) (t : tree) : Prop :=
   match t with
@@ -82,7 +86,7 @@ Proof.
   - destruct (n <? d) eqn:E.
     * unfold closed_term. apply Nat.ltb_lt. exact E.
     * destruct (nth_error args (n - d)) eqn:E2.
-      + eapply Forall_forall in H2. 
+      + eapply Forall_forall in H2.
         -- apply H2.
         -- eapply nth_error_In. exact E2.
       + simpl. apply nth_error_None in E2. lia.
@@ -108,7 +112,7 @@ Proof.
   intros G d c g. revert d c.
   induction g; intros d c args H1 H2; simpl in *.
   - (*succ*) exact H1.
-  - (*unify*) destruct H1 as [Hct1 Hct2]. 
+  - (*unify*) destruct H1 as [Hct1 Hct2].
     split; apply open_term_closed; assumption.
   - (*relcall*) destruct (nth_error G n).
     * destruct p as [n0 g0].
@@ -131,8 +135,8 @@ Proof.
   - (*fresh*) apply IHg.
     * rewrite Nat.add_assoc. exact H1.
     * eapply Forall_impl.
-      + intros t Ht. 
-        apply (closed_term_mono d (d + n) c (c + n)).
+      + intros t Ht.
+        apply (closed_term_mono d (d + n) c c).
         1, 2: lia.
         exact Ht.
       + exact H2.
@@ -146,7 +150,7 @@ Proof.
   intros G c g. revert G c.
   induction g; intros G c args H1 H2; simpl in *.
   - (*succ*) exact H1.
-  - (*unify*) destruct H1 as [Ht Ht0]. 
+  - (*unify*) destruct H1 as [Ht Ht0].
     split; apply open_term_closed.
     2, 4: exact H2.
     * rewrite Nat.add_0_r. exact Ht.
@@ -163,16 +167,16 @@ Proof.
         -- exact IH.
     * exact H1.
   - (*disj*) destruct H1 as [Hg1 Hg2]. split.
-    * apply IHg1; assumption. 
-    * apply IHg2; assumption. 
+    * apply IHg1; assumption.
+    * apply IHg2; assumption.
   - (*conj*) destruct H1 as [Hg1 Hg2]. split.
-    * apply IHg1; assumption. 
-    * apply IHg2; assumption. 
+    * apply IHg1; assumption.
+    * apply IHg2; assumption.
   - (*fresh*) apply open_goal_closed.
     * exact H1.
     * eapply Forall_impl.
       + intros t Ht.
-        eapply closed_term_mono with (d:=0) (d':=n) (c:=c) (c':=c+n).
+        eapply closed_term_mono with (d:=0) (d':=n) (c:=c) (c':=c).
         1, 2: lia.
         exact Ht.
       + exact H2.
@@ -202,7 +206,7 @@ Proof.
       intros t Ht. eapply closed_term_mono; eassumption.
   - destruct H. split; [eapply IHg1 | eapply IHg2]; eassumption.
   - destruct H. split; [eapply IHg1 | eapply IHg2]; eassumption.
-  - apply IHg with (d := d + n) (c := c + n); [lia | lia | exact H].
+  - apply IHg with (d := d + n) (c := c); [lia | lia | exact H].
 Qed.
 
 Lemma closed_tree_mono : forall G c c' t,
@@ -288,19 +292,124 @@ Proof.
   intros. unfold walk. apply walk_f_closed; assumption.
 Qed.
 
+Lemma Walk_closed : forall c t1 t2 s,
+  closed_term 0 c t1 ->
+  closed_sub c s ->
+  Walk s t1 t2 ->
+  closed_term 0 c t2.
+Proof.
+  intros c t1 t2 s Hct Hcs Hwalk.
+  induction Hwalk; try assumption.
+  apply IHHwalk. exact (lookup_closed _ _ _ _ Hcs H).
+Qed.
+
+
 (** A successful [Unify] on closed terms yields a closed substitution. *)
+Lemma UnifyW_closed : forall c w1 w2 s s',
+  closed_term 0 c w1 ->
+  closed_term 0 c w2 ->
+  closed_sub c s ->
+  UnifyW w1 w2 s (Some s') ->
+  closed_sub c s'.
+Proof.
+  intros c w1 w2 s s' Hct1 Hct2 Hcs HunifyW.
+  remember (Some s') as r eqn:Hr.
+  revert s' Hr Hct1 Hct2 Hcs.
+  induction HunifyW;
+  intros s_final Hr Hct1 Hct2 Hcs;
+  try congruence; simpl in *.
+  - injection Hr as <-. repeat split; assumption.
+  - injection Hr as <-. repeat split; assumption.
+  - destruct Hct1 as [Hcta1 Hcta2].
+    destruct Hct2 as [Hctb1 Hctb2].
+    pose proof (Walk_closed _ _ _ _ Hcta1 Hcs H) as Hctwa1.
+    pose proof (Walk_closed _ _ _ _ Hctb1 Hcs H0) as Hctwb1.
+    assert (Hcs1 : closed_sub c s1).
+    { eapply IHHunifyW1; try eassumption; try reflexivity.  }
+    pose proof (Walk_closed _ _ _ _ Hcta2 Hcs1 H1) as Hctwa2.
+    pose proof (Walk_closed _ _ _ _ Hctb2 Hcs1 H2) as Hctwb2.
+    eapply IHHunifyW2; try eassumption.
+Qed.
+
+
 Lemma Unify_closed : forall c t1 t2 s s',
   closed_term 0 c t1 ->
   closed_term 0 c t2 ->
   closed_sub c s ->
   Unify t1 t2 s (Some s') ->
   closed_sub c s'.
-Proof. Admitted.
+Proof.
+  intros c t1 t2 s s' Hct1 Hct2 Hcs Hunify.
+  destruct Hunify as (w1 & w2 & Hw1 & Hw2 & HunifyW).
+  pose proof (Walk_closed _ _ _ _ Hct1 Hcs Hw1) as Hctw1.
+  pose proof (Walk_closed _ _ _ _ Hct2 Hcs Hw2) as Hctw2.
+  exact (UnifyW_closed c w1 w2 s s' Hctw1 Hctw2 Hcs HunifyW).
+Qed.
+
+Lemma in_map_seq : forall {A : Type} (n a b : nat) (f : nat -> A),
+  (forall x y, f x = f y -> x = y) ->
+  (In (f n) (map f (seq a b)) <-> a <= n < a + b).
+Proof.
+  intros A n a b f Hinj.
+  split; intros H.
+  - apply in_map_iff in H.
+    destruct H as [m [Hfm Hseq]].
+    apply Hinj in Hfm.
+    subst m. apply in_seq. exact Hseq.
+  - apply in_map_iff.
+    exists n.
+    split.
+    + reflexivity.
+    + apply in_seq.
+      exact H.
+Qed.
+
+Lemma fresh_args_closed : forall start bound k,
+  start <= bound ->
+  Forall (closed_term 0 (bound + k)) (map tvar (seq start k)).
+Proof.
+  intros start bound k Hle. apply Forall_forall. intros t Hin.
+  apply in_map_iff in Hin. destruct Hin as [i [<- Hi]].
+  apply in_seq in Hi. simpl. lia.
+Qed.
 
 Lemma Head_closed : forall G c t t',
   closed_env G -> closed_tree G c t -> Head G t t' ->
   exists c', closed_tree G c' t'.
-Proof. Admitted.
+Proof.
+  intros G c t t' Hce Hct Hhead.
+  induction Hhead; simpl in *;
+  try (exists c; easy).
+  - exists c.
+    destruct Hct as (Hlte & (Hct1 & Hct2) & Hcs).
+    pose proof (Unify_closed _ _ _ _ _ Hct1 Hct2 Hcs H) as Hcs'.
+    repeat split; assumption.
+  - exists (c + k).
+    destruct Hct as (Hlte & Hcg & Hcs).
+    repeat split.
+    * lia.
+    * apply open_goal_closed.
+      + rewrite length_map, length_seq, Nat.add_0_r.
+        apply (closed_goal_mono G k k c (c + k) g); try lia.
+        exact Hcg.
+      + exact (fresh_args_closed (st_cnt s) c k Hlte).
+    * apply closed_sub_mono with (c:=c).
+      + lia.
+      + assumption.
+  - exists c.
+    destruct (nth_error G r);
+    try destruct p; easy.
+  - exists c.
+    rewrite H in Hct.
+    destruct Hct as (Hcnt & Hlen & Hargs & Hsub).
+    repeat split; try assumption.
+    apply open_closed.
+    + rewrite H0.
+      apply (closed_goal_mono G n n 0 c body); try lia.
+      exact (Hce r n body H).
+    + exact Hargs.
+Qed.
+
 
 
 Inductive state_in : tree -> state -> Prop :=
@@ -383,12 +492,6 @@ Proof.
       exact (state_in_plug_mono E r r' s Hsin Hsinr').
 Qed.
 
-Lemma Head_tight : forall G t t',
-  closed_env G -> tight_tree G t -> Head G t t' ->
-  tight_tree G t'.
-Proof. Admitted.
-
-
 Lemma state_in_tgoal_eq : forall g s s', state_in (tgoal g s) s' -> s' = s.
 Proof. intros g s s' H. inversion H. subst. reflexivity. Qed.
 
@@ -423,13 +526,85 @@ Proof.
   - apply SI_tconj.    apply IHE. exact H.
 Qed.
 
+(* A head step can copy, discard, or advance states, but cannot introduce
+   a state with a smaller counter than its source. *)
+Lemma Head_state_counter : forall G r r',
+  Head G r r' -> forall s', state_in r' s' ->
+  exists s, state_in r s /\ st_cnt s <= st_cnt s'.
+Proof.
+  intros G r r' Hhead.
+  induction Hhead; intros out Hsin;
+    repeat match goal with
+    | H : state_in tfail _ |- _ => inversion H
+    | H : state_in (tdelay _) _ |- _ => inversion H; subst; clear H
+    | H : state_in (tconj _ _) _ |- _ => inversion H; subst; clear H
+    | H : state_in (tdisjL _ _) _ |- _ => inversion H; subst; clear H
+    | H : state_in (tdisjR _ _) _ |- _ => inversion H; subst; clear H
+    | H : state_in (tgoal _ _) _ |- _ => inversion H; subst; clear H
+    | H : state_in (tproceed _ _ _) _ |- _ => inversion H; subst; clear H
+    end;
+    try (exists s; split; [eauto 10 | simpl; lia]);
+    try (exists out; split; [eauto 10 | lia]).
+Qed.
+
 (* Every state in r' has a corresponding state in r with counter <= st_cnt s',
    so any closed_goal condition transfers across a head step. *)
 Lemma Head_closed_goal_transfer : forall G r r' g,
   Head G r r' ->
   (forall s, state_in r s -> closed_goal G 0 (st_cnt s) g) ->
   forall s', state_in r' s' -> closed_goal G 0 (st_cnt s') g.
-Proof. Admitted.
+Proof.
+  intros G r r' g Hhead Hclosed s' Hsin.
+  destruct (Head_state_counter G r r' Hhead s' Hsin) as [s [Hin Hle]].
+  exact (closed_goal_mono G 0 0 (st_cnt s) (st_cnt s') g
+           (Nat.le_refl 0) Hle (Hclosed s Hin)).
+Qed.
+
+Lemma Head_tight : forall G t t',
+  closed_env G -> tight_tree G t -> Head G t t' ->
+  tight_tree G t'.
+Proof.
+  intros G t t' Hce Htt Hhead.
+  destruct Hhead; simpl in *; try tauto.
+  - destruct Htt as [[Ht1 Ht2] Hsub]. split; [exact I |].
+    exact (Unify_closed (st_cnt s) t1 t2 (st_sub s) s' Ht1 Ht2 Hsub H).
+  - destruct Htt as [[Hg1 Hg2] Hsub]. split.
+    + split; assumption.
+    + intros out Hin. apply state_in_tgoal_eq in Hin. subst. exact Hg2.
+  - destruct Htt as [Hg Hsub]. split.
+    + apply open_goal_closed.
+      * rewrite length_map, length_seq, Nat.add_0_r.
+        apply (closed_goal_mono G k k (st_cnt s) (st_cnt s + k) g); try lia.
+        exact Hg.
+      * exact (fresh_args_closed (st_cnt s) (st_cnt s) k (Nat.le_refl _)).
+    + apply closed_sub_mono with (c := st_cnt s); [lia | exact Hsub].
+  - destruct Htt as [Hgoal Hsub].
+    destruct (nth_error G r) as [[arity body]|] eqn:Hlook; simpl in Hgoal.
+    + exact (conj Hsub (proj2 Hgoal)).
+    + contradiction.
+  - destruct Htt as [Hsub Hargs]. split; [|exact Hsub].
+    apply open_closed.
+    + rewrite H0.
+      apply (closed_goal_mono G n n 0 (st_cnt s) body); try lia.
+      exact (Hce r n body H).
+    + exact Hargs.
+  - destruct Htt as [[_ Hsub] Hcont]. split; [|exact Hsub].
+    exact (Hcont s (SI_tgoal gsucc s)).
+  - destruct Htt as [[Hs Ht2] Hcont]. split.
+    + split; [exact Hs |]. intros out Hin.
+      apply state_in_tgoal_eq in Hin. subst.
+      apply Hcont. apply SI_tdisjL_l. constructor.
+    + split; [exact Ht2 |]. intros out Hin.
+      apply Hcont. apply SI_tdisjL_r. exact Hin.
+  - destruct Htt as [[Ht1 Hs] Hcont]. split.
+    + split; [exact Ht1 |]. intros out Hin.
+      apply Hcont. apply SI_tdisjR_l. exact Hin.
+    + split; [exact Hs |]. intros out Hin.
+      apply state_in_tgoal_eq in Hin. subst.
+      apply Hcont. apply SI_tdisjR_r. constructor.
+  - destruct Htt as [Ht Hcont]. split; [exact Ht |].
+    intros out Hin. apply Hcont. apply SI_tdelay. exact Hin.
+Qed.
 
 (* Any state in plug E r' is either in plug E r or directly in r'. *)
 Lemma state_in_plug_or : forall E r r' s,
