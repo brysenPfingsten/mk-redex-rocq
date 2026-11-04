@@ -7,6 +7,12 @@ Set Default Goal Selector "!".
 
 Definition sub := list (nat * term).
 
+Lemma sub_eq_dec : forall s1 s2 : sub, {s1 = s2} + {s1 <> s2}.
+Proof.
+  decide equality.
+  decide equality; [apply term_eq_dec | apply Nat.eq_dec].
+Defined.
+
 Fixpoint lookup (x : nat) (s : sub) : option term :=
   match s with
   | [] => None
@@ -61,21 +67,6 @@ Inductive DeepOccurs (s : sub) (x : nat) : term -> Prop :=
       DeepOccurs s x (tvar y)
   | DO_cons_l : forall a b, DeepOccurs s x a -> DeepOccurs s x (tcons a b)
   | DO_cons_r : forall a b, DeepOccurs s x b -> DeepOccurs s x (tcons a b).
-
-(* Apply Substitution *)
-
-Fixpoint apply_sub_f (fuel : nat) (t : term) (s : sub) : term :=
-  match fuel with
-  | 0 => walk t s
-  | S f =>
-      match walk t s with
-      | tcons a b => tcons (apply_sub_f f a s) (apply_sub_f f b s)
-      | u => u
-      end
-  end.
-
-Definition apply_sub (t : term) (s : sub) : term :=
-  apply_sub_f (List.length s) t s.
 
 Inductive ApplySub (s : sub) : term -> term -> Prop :=
   | AS_free  : forall x,

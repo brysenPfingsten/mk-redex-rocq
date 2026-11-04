@@ -13,6 +13,12 @@ Inductive term : Type :=
   | tnil  : term
   | tcons : term -> term -> term.
 
+Lemma term_eq_dec : forall t u : term, {t = u} + {t <> u}.
+Proof.
+  decide equality; try apply Nat.eq_dec; try apply String.string_dec;
+    try apply Bool.bool_dec.
+Defined.
+
 (** * term_eqb *)
 Fixpoint term_eqb (t1 t2 : term) : bool :=
   match t1, t2 with

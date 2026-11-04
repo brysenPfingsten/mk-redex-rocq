@@ -1,4 +1,4 @@
-From Stdlib Require Import List Arith Lia.
+From Stdlib Require Import List Arith Lia Program.Wf Logic.FunctionalExtensionality.
 Import ListNotations.
 Require Import MkRedex.Language.Terms.
 Require Import MkRedex.Language.Substitution.
@@ -424,6 +424,15 @@ Proof.
   - exfalso. exact (Hnotvar y Heq).
 Qed.
 
+Lemma Walk_idempotent : forall s t w,
+  Walk s t w -> Walk s w w.
+Proof.
+  intros s t w Hwalk. induction Hwalk.
+  - apply W_free. exact H.
+  - exact IHHwalk.
+  - apply W_rigid. exact H.
+Qed.
+
 Lemma ApplySub_total : forall s, acyclic_sub s -> forall t, exists r, ApplySub s t r.
 Proof.
   intros s Hac.
@@ -461,6 +470,239 @@ Proof.
     - exact (ex_intro _ (tvar x) (AS_free s x Hlook)).
   }
   intro t. apply (core t). intros y _. exact (Hvar y).
+Qed.
+
+(** Full substitution follows the same variable chain as [Walk]; once it
+    reaches a constructor or rigid term, [Walk] stops there. *)
+Lemma ApplySub_has_walk : forall s t r,
+  ApplySub s t r -> exists w, Walk s t w.
+Proof.
+  intros s t r Happ. induction Happ.
+  - exists (tvar x). apply W_free. exact H.
+  - destruct IHHapp as [w Hw]. exists w. apply W_bound with (u := u); assumption.
+  - exists (tcons a b). apply W_rigid. intros x Heq. discriminate Heq.
+  - exists t. apply W_rigid. exact H.
+Qed.
+
+Lemma Walk_total : forall s,
+  acyclic_sub s -> forall t, exists w, Walk s t w.
+Proof.
+  intros s Hacyclic t.
+  destruct (ApplySub_total s Hacyclic t) as [r Happ].
+  exact (ApplySub_has_walk s t r Happ).
+Qed.
+
+Lemma DeepOccurs_dec : forall s,
+  acyclic_sub s -> forall x t,
+    {DeepOccurs s x t} + {~ DeepOccurs s x t}.
+Proof.
+  intros s Hacyclic x.
+  assert (core : forall t,
+      (forall y, occurs y t = true ->
+         {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}) ->
+      {DeepOccurs s x t} + {~ DeepOccurs s x t}). {
+    intro t. induction t; intros Hvars.
+    - apply Hvars. simpl. apply Nat.eqb_refl.
+    - right. intro H. inversion H.
+    - right. intro H. inversion H.
+    - right. intro H. inversion H.
+    - right. intro H. inversion H.
+    - right. intro H. inversion H.
+    - right. intro H. inversion H.
+    - assert (Hleft : forall y, occurs y t1 = true ->
+          {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}). {
+        intros y Hy. apply Hvars. simpl. rewrite Hy. reflexivity.
+      }
+      assert (Hright : forall y, occurs y t2 = true ->
+          {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}). {
+        intros y Hy. apply Hvars. simpl. rewrite Hy.
+        destruct (occurs y t1); reflexivity.
+      }
+      destruct (IHt1 Hleft) as [Ha | Ha].
+      + left. apply DO_cons_l. exact Ha.
+      + destruct (IHt2 Hright) as [Hb | Hb].
+        * left. apply DO_cons_r. exact Hb.
+        * right. intro H. inversion H; subst; contradiction.
+  }
+  assert (Hvar : forall y,
+      {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}). {
+    apply (well_founded_induction_type Hacyclic). intros y IH.
+    destruct (Nat.eq_dec x y) as [-> | Hneq].
+    - left. apply DO_var.
+    - destruct (lookup y s) as [u |] eqn:Hlook.
+      + destruct (core u) as [Hu | Hu].
+        * intros z Hz. apply IH. exists u. split; [reflexivity | exact Hz].
+        * left. apply DO_walk with (t := u); assumption.
+        * right. intro H. inversion H; subst; congruence.
+      + right. intro H. inversion H; subst; congruence.
+  }
+  intro t. apply core. intros y _. exact (Hvar y).
+Defined.
+
+Inductive sub_step (s : sub) : term -> term -> Prop :=
+  | sub_step_bound : forall x u,
+      lookup x s = Some u -> sub_step s u (tvar x)
+  | sub_step_left : forall a b, sub_step s a (tcons a b)
+  | sub_step_right : forall a b, sub_step s b (tcons a b).
+
+Lemma ApplySub_accessible : forall s t r,
+  ApplySub s t r -> Acc (sub_step s) t.
+Proof.
+  intros s t r Happ. induction Happ; constructor; intros next Hstep;
+    inversion Hstep; subst; try congruence; assumption.
+Qed.
+
+Lemma sub_step_wf : forall s,
+  acyclic_sub s -> well_founded (sub_step s).
+Proof.
+  intros s Hacyclic t.
+  destruct (ApplySub_total s Hacyclic t) as [r Happ].
+  exact (ApplySub_accessible s t r Happ).
+Qed.
+
+Section ApplySubExecutable.
+Context (s : sub) (Hacyclic : acyclic_sub s).
+
+Program Fixpoint apply_sub_valid (t : term) {wf (sub_step s) t} : term :=
+  match t with
+  | tvar x =>
+      match lookup x s with
+      | Some u => apply_sub_valid u
+      | None => tvar x
+      end
+  | tcons a b => tcons (apply_sub_valid a)
+                       (apply_sub_valid b)
+  | _ => t
+  end.
+
+Next Obligation.
+  apply sub_step_bound. symmetry. exact Heq_anonymous.
+Qed.
+Next Obligation.
+  apply sub_step_left.
+Qed.
+Next Obligation.
+  apply sub_step_right.
+Qed.
+Solve All Obligations with
+  (first [solve [split; intros; discriminate]
+         | solve [apply sub_step_wf; exact Hacyclic]]).
+
+End ApplySubExecutable.
+
+Lemma apply_sub_valid_unfold : forall s Hacyclic t,
+  apply_sub_valid s Hacyclic t =
+    match t with
+    | tvar x => match lookup x s with
+                | Some u => apply_sub_valid s Hacyclic u
+                | None => tvar x
+                end
+    | tcons a b => tcons (apply_sub_valid s Hacyclic a)
+                         (apply_sub_valid s Hacyclic b)
+    | _ => t
+    end.
+Proof.
+  intros s Hacyclic t.
+  unfold apply_sub_valid at 1.
+  rewrite Fix_eq.
+  - destruct t; simpl; try reflexivity.
+    + destruct (lookup n s) eqn:Hlook; reflexivity.
+  - intros x f g Hfg.
+    assert (f = g) by (apply functional_extensionality_dep; exact Hfg).
+    subst. reflexivity.
+Qed.
+
+Lemma apply_sub_valid_of_ApplySub : forall s t r,
+  ApplySub s t r -> forall Hacyclic,
+  apply_sub_valid s Hacyclic t = r.
+Proof.
+  intros s t r Happ. induction Happ; intro Hacyclic;
+    rewrite apply_sub_valid_unfold.
+  - rewrite H. reflexivity.
+  - rewrite H. exact (IHHapp Hacyclic).
+  - rewrite (IHHapp1 Hacyclic), (IHHapp2 Hacyclic). reflexivity.
+  - destruct t; simpl; try reflexivity.
+    + exfalso. exact (H n eq_refl).
+    + exfalso. exact (H0 t1 t2 eq_refl).
+Qed.
+
+Theorem apply_sub_valid_spec : forall s Hacyclic t r,
+  ApplySub s t r <-> apply_sub_valid s Hacyclic t = r.
+Proof.
+  intros s Hacyclic t r. split.
+  - intro Happ. exact (apply_sub_valid_of_ApplySub s t r Happ Hacyclic).
+  - intro Heq. destruct (ApplySub_total s Hacyclic t) as [out Happ].
+    pose proof (apply_sub_valid_of_ApplySub s t out Happ Hacyclic) as Hout.
+    rewrite Heq in Hout. subst. exact Happ.
+Qed.
+
+(** The acyclicity witness is erased by extraction.  The runtime invariant
+    must provide it before this function is used by the search machine. *)
+Definition apply_sub (t : term) (s : sub) (Hacyclic : acyclic_sub s) : term :=
+  apply_sub_valid s Hacyclic t.
+
+Corollary apply_sub_spec : forall s Hacyclic t r,
+  ApplySub s t r <-> apply_sub t s Hacyclic = r.
+Proof. exact apply_sub_valid_spec. Qed.
+
+Section WalkExecutable.
+Context (s : sub) (Hacyclic : acyclic_sub s).
+
+Program Fixpoint walk_valid (t : term) {wf (sub_step s) t} : term :=
+  match t with
+  | tvar x => match lookup x s with
+              | Some u => walk_valid u
+              | None => tvar x
+              end
+  | _ => t
+  end.
+
+Next Obligation.
+  apply sub_step_bound. symmetry. exact Heq_anonymous.
+Qed.
+Solve All Obligations with
+  (first [solve [split; intros; discriminate]
+         | solve [apply sub_step_wf; exact Hacyclic]]).
+
+End WalkExecutable.
+
+Lemma walk_valid_unfold : forall s Hacyclic t,
+  walk_valid s Hacyclic t =
+  match t with
+  | tvar x => match lookup x s with
+              | Some u => walk_valid s Hacyclic u
+              | None => tvar x
+              end
+  | _ => t
+  end.
+Proof.
+  intros s Hacyclic t. unfold walk_valid at 1. rewrite Fix_eq.
+  - destruct t; simpl; try reflexivity.
+    destruct (lookup n s); reflexivity.
+  - intros x f g Hfg.
+    assert (f = g) by (apply functional_extensionality_dep; exact Hfg).
+    subst. reflexivity.
+Qed.
+
+Lemma walk_valid_of_Walk : forall s t w,
+  Walk s t w -> forall Hacyclic, walk_valid s Hacyclic t = w.
+Proof.
+  intros s t w Hwalk. induction Hwalk; intro Hacyclic;
+    rewrite walk_valid_unfold.
+  - rewrite H. reflexivity.
+  - rewrite H. exact (IHHwalk Hacyclic).
+  - destruct t; try reflexivity.
+    exfalso. exact (H n eq_refl).
+Qed.
+
+Theorem walk_valid_spec : forall s Hacyclic t w,
+  Walk s t w <-> walk_valid s Hacyclic t = w.
+Proof.
+  intros s Hacyclic t w. split.
+  - intro Hwalk. exact (walk_valid_of_Walk s t w Hwalk Hacyclic).
+  - intro Heq. destruct (Walk_total s Hacyclic t) as [out Hwalk].
+    pose proof (walk_valid_of_Walk s t out Hwalk Hacyclic) as Hout.
+    rewrite Heq in Hout. subst. exact Hwalk.
 Qed.
 
 Lemma DeepOccurs_tsize : forall s x u,
