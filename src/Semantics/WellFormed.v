@@ -1001,6 +1001,40 @@ Fixpoint tight_tree (G : env) (t : tree) : Prop :=
   | tdisjR t1 t2    => tight_tree G t1 /\ tight_tree G t2
   end.
 
+(** Each active state has an acyclic substitution.  This is the
+    termination precondition for walking and unification. *)
+Fixpoint acyclic_tree (t : tree) : Prop :=
+  match t with
+  | tfail => True
+  | tgoal _ s | tproceed _ _ s => acyclic_sub (st_sub s)
+  | tdelay t' | tconj t' _ => acyclic_tree t'
+  | tdisjL t1 t2 | tdisjR t1 t2 => acyclic_tree t1 /\ acyclic_tree t2
+  end.
+
+Lemma closed_sub_zero_nil : forall s, closed_sub 0 s -> s = [].
+Proof.
+  intros [|[x u] s] Hclosed; [reflexivity | simpl in Hclosed; lia].
+Qed.
+
+Lemma closed_tree_zero_acyclic : forall G t,
+  closed_tree G 0 t -> acyclic_tree t.
+Proof.
+  intros G t. induction t; simpl; intros Hclosed; try exact I.
+  - destruct Hclosed as [_ [_ Hsub]].
+    apply closed_sub_zero_nil in Hsub. subst. unfold acyclic_sub.
+    intros x. constructor. intros y [u [Hlookup _]].
+    rewrite Hsub in Hlookup. discriminate Hlookup.
+  - exact (IHt Hclosed).
+  - destruct (nth_error G n) as [[arity body]|]; [|contradiction].
+    destruct Hclosed as [_ [_ [_ Hsub]]].
+    apply closed_sub_zero_nil in Hsub. subst. unfold acyclic_sub.
+    intros x. constructor. intros y [u [Hlookup _]].
+    rewrite Hsub in Hlookup. discriminate Hlookup.
+  - exact (IHt (proj1 Hclosed)).
+  - destruct Hclosed as [H1 H2]. split; [apply IHt1 | apply IHt2]; assumption.
+  - destruct Hclosed as [H1 H2]. split; [apply IHt1 | apply IHt2]; assumption.
+Qed.
+
 (** At the initial global bound zero, every state counter is zero, so
     global closure also supplies each local tightness obligation. *)
 Lemma closed_tree_zero_tight : forall G t,
@@ -1247,10 +1281,36 @@ Proof.
           [intros s0 Hsin0; exact (Hfg s0 (state_in_plug_into _ r s0 Hsin0)) | exact Hin].
 Qed.
 
+Lemma Head_acyclic : forall G r r',
+  acyclic_tree r -> Head G r r' -> acyclic_tree r'.
+Proof.
+  intros G r r' Hac Hhead.
+  destruct Hhead; simpl in *; try tauto.
+  - eapply Unify_acyclic; eassumption.
+Qed.
+
+Lemma plug_acyclic_inv : forall E r,
+  acyclic_tree (plug E r) -> acyclic_tree r.
+Proof.
+  induction E; intros r Hac; simpl in *; try exact Hac;
+    apply IHE; tauto.
+Qed.
+
+Lemma plug_acyclic : forall E r r',
+  acyclic_tree (plug E r) -> acyclic_tree r' ->
+  acyclic_tree (plug E r').
+Proof.
+  induction E; intros r r' Hplug Hr'; simpl in *; try exact Hr'.
+  - split; [eapply IHE; [exact (proj1 Hplug) | exact Hr'] | exact (proj2 Hplug)].
+  - split; [exact (proj1 Hplug) | eapply IHE; [exact (proj2 Hplug) | exact Hr']].
+  - eapply IHE; eassumption.
+Qed.
+
 Definition ok_expr (G : env) (e : expr) : Prop :=
   (exists c, closed_tree G c (snd e)) /\
   tight_tree G (snd e) /\
-  Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e).
+  Forall (fun s => closed_sub (st_cnt s) (st_sub s)) (fst e) /\
+  acyclic_tree (snd e).
 
 Lemma closed_program_env : forall G e,
   closed_program G e -> closed_env G.
@@ -1271,6 +1331,7 @@ Proof.
     + exists 0. exact Htree.
     + exact (closed_tree_zero_tight G (snd e) Htree).
     + exact Hans.
+    + exact (closed_tree_zero_acyclic G (snd e) Htree).
 Qed.
 
 Lemma step_ok : forall G e e',
@@ -1279,7 +1340,7 @@ Proof.
   intros G e e' HcG Hoke Hstep.
   destruct Hstep.
   - (* S_ctx: (ans, plug E r) --> (ans, plug E r') *)
-    destruct Hoke as [[c Hclosed] [Htt Hfa]].
+    destruct Hoke as [[c Hclosed] [Htt [Hfa Hac]]].
     repeat split; simpl.
     + apply (plug_closed_inv G c E r) in Hclosed as Hcr.
       destruct (Head_closed G c r r' HcG Hcr H) as [c' Hcr'].
@@ -1292,14 +1353,20 @@ Proof.
       * exact (plug_tight_inv G E r Htt).
       * exact H.
     + exact Hfa.
+    + apply (plug_acyclic E r r').
+      * exact Hac.
+      * apply (Head_acyclic G r r').
+        -- exact (plug_acyclic_inv E r Hac).
+        -- exact H.
   - (* S_delay: (ans, tdelay t) --> (ans, t) *)
-    destruct Hoke as [[c Hclosed] [Htt Hfa]].
+    destruct Hoke as [[c Hclosed] [Htt [Hfa Hac]]].
     repeat split; simpl in *.
     + exists c. exact Hclosed.
     + exact Htt.
     + exact Hfa.
+    + exact Hac.
   - (* S_promoteL: (ans, tdisjL (tgoal gsucc s) t) --> (ans ++ [s], t) *)
-    destruct Hoke as [[c Hclosed] [Htt Hfa]].
+    destruct Hoke as [[c Hclosed] [Htt [Hfa Hac]]].
     simpl in Hclosed, Htt.
     destruct Hclosed as [_ Hct].
     destruct Htt as [Hts Htt].
@@ -1309,8 +1376,9 @@ Proof.
     + rewrite Forall_app. split.
       * exact Hfa.
       * constructor; [exact (proj2 Hts) | constructor].
+    + exact (proj2 Hac).
   - (* S_promoteR: (ans, tdisjR t (tgoal gsucc s)) --> (ans ++ [s], t) *)
-    destruct Hoke as [[c Hclosed] [Htt Hfa]].
+    destruct Hoke as [[c Hclosed] [Htt [Hfa Hac]]].
     simpl in Hclosed, Htt.
     destruct Hclosed as [Hct _].
     destruct Htt as [Htt Hts].
@@ -1320,6 +1388,7 @@ Proof.
     + rewrite Forall_app. split.
       * exact Hfa.
       * constructor; [exact (proj2 Hts) | constructor].
+    + exact (proj1 Hac).
 Qed.
 
 Lemma multi_ok : forall G e e',
@@ -1337,4 +1406,115 @@ Proof.
   intros G e e' Hprogram Hmulti.
   destruct (closed_program_ok G e Hprogram) as [Henv Hok].
   exact (multi_ok G e e' Hmulti Henv Hok).
+Qed.
+
+(** A step in the scheduled child induces a step of its parent.  The
+    promotion and delay cases use the corresponding scheduling rules. *)
+Lemma step_conj_context : forall G ans t t' g,
+  G |= (ans, t) --> t' ->
+  exists e', G |= (ans, tconj t g) --> e'.
+Proof.
+  intros G ans t t' g Hstep. inversion Hstep; subst; clear Hstep.
+  - eexists. eapply S_ctx with (E := cconj E g). eassumption.
+  - eexists. apply S_ctx with (E := chole). apply H_delay_conj.
+  - eexists. apply S_ctx with (E := chole). apply H_left_ans_conj.
+  - eexists. apply S_ctx with (E := chole). apply H_right_ans_conj.
+Qed.
+
+Lemma step_disjL_context : forall G ans t t' u,
+  G |= (ans, t) --> t' ->
+  exists e', G |= (ans, tdisjL t u) --> e'.
+Proof.
+  intros G ans t t' u Hstep. inversion Hstep; subst; clear Hstep.
+  - eexists. eapply S_ctx with (E := cdisjL E u). eassumption.
+  - eexists. apply S_ctx with (E := chole). apply H_delay_left.
+  - eexists. apply S_ctx with (E := chole). apply H_assoc_ll.
+  - eexists. apply S_ctx with (E := chole). apply H_assoc_lr.
+Qed.
+
+Lemma step_disjR_context : forall G ans t t' u,
+  G |= (ans, t) --> t' ->
+  exists e', G |= (ans, tdisjR u t) --> e'.
+Proof.
+  intros G ans t t' u Hstep. inversion Hstep; subst; clear Hstep.
+  - eexists. eapply S_ctx with (E := cdisjR u E). eassumption.
+  - eexists. apply S_ctx with (E := chole). apply H_delay_right.
+  - eexists. apply S_ctx with (E := chole). apply H_assoc_rl.
+  - eexists. apply S_ctx with (E := chole). apply H_assoc_rr.
+Qed.
+
+Theorem tree_progress : forall G c t ans,
+  closed_tree G c t -> tight_tree G t -> acyclic_tree t ->
+  is_value (ans, t) \/ exists e', G |= (ans, t) --> e'.
+Proof.
+  intros G c t. induction t; intros ans Hclosed Htight Hacyclic.
+  - left. exact I.
+  - destruct g.
+    + left. exact I.
+    + right. simpl in Htight. destruct Htight as [Hgoal Hsub].
+      simpl in Hgoal. destruct Hgoal as [Ht1 Ht2].
+      destruct (Unify_total (st_cnt s) (st_sub s) t t0
+        Hacyclic Hsub Ht1 Ht2) as [[s'|] Hunify].
+      * eexists. apply S_ctx with (E := chole). apply H_unify_ok. exact Hunify.
+      * eexists. apply S_ctx with (E := chole). apply H_unify_fail. exact Hunify.
+    + right. eexists. apply S_ctx with (E := chole). apply H_relcall.
+    + right. eexists. apply S_ctx with (E := chole). apply H_disj.
+    + right. eexists. apply S_ctx with (E := chole). apply H_conj.
+    + right. eexists. apply S_ctx with (E := chole). apply H_fresh.
+  - right. eexists. apply S_delay.
+  - right. simpl in Hclosed.
+    destruct (nth_error G n) as [[arity body]|] eqn:Hlook;
+      [|contradiction].
+    destruct Hclosed as [_ [Hlen _]].
+    eexists. apply S_ctx with (E := chole).
+    eapply H_proceed; eassumption.
+  - right. simpl in Hclosed, Htight, Hacyclic.
+    destruct (IHt ans (proj1 Hclosed) (proj1 Htight) Hacyclic)
+      as [Hvalue | [e' Hstep]].
+    + destruct t; simpl in Hvalue; try contradiction.
+      * eexists. apply S_ctx with (E := chole). apply H_prune_conj.
+      * destruct g0; try contradiction.
+        eexists. apply S_ctx with (E := chole). apply H_succ_conj.
+    + exact (step_conj_context G ans t e' g Hstep).
+  - right. simpl in Hclosed, Htight, Hacyclic.
+    destruct Hclosed as [Hc1 Hc2].
+    destruct Htight as [Ht1 Ht2].
+    destruct Hacyclic as [Ha1 Ha2].
+    destruct (IHt1 ans Hc1 Ht1 Ha1) as [Hvalue | [e' Hstep]].
+    + destruct t1; simpl in Hvalue; try contradiction.
+      * eexists. apply S_ctx with (E := chole). apply H_prune_left.
+      * destruct g; try contradiction. eexists. apply S_promoteL.
+    + exact (step_disjL_context G ans t1 e' t2 Hstep).
+  - right. simpl in Hclosed, Htight, Hacyclic.
+    destruct Hclosed as [Hc1 Hc2].
+    destruct Htight as [Ht1 Ht2].
+    destruct Hacyclic as [Ha1 Ha2].
+    destruct (IHt2 ans Hc2 Ht2 Ha2) as [Hvalue | [e' Hstep]].
+    + destruct t2; simpl in Hvalue; try contradiction.
+      * eexists. apply S_ctx with (E := chole). apply H_prune_right.
+      * destruct g; try contradiction. eexists. apply S_promoteR.
+    + exact (step_disjR_context G ans t2 e' t1 Hstep).
+Qed.
+
+Theorem progress : forall G e,
+  ok_expr G e -> is_value e \/ exists e', G |= e --> e'.
+Proof.
+  intros G [ans t] [[c Hclosed] [Htight [_ Hacyclic]]].
+  exact (tree_progress G c t ans Hclosed Htight Hacyclic).
+Qed.
+
+Corollary closed_program_progress : forall G e,
+  closed_program G e -> is_value e \/ exists e', G |= e --> e'.
+Proof.
+  intros G e Hprogram.
+  destruct (closed_program_ok G e Hprogram) as [_ Hok].
+  exact (progress G e Hok).
+Qed.
+
+Corollary closed_program_multi_progress : forall G e e',
+  closed_program G e -> multi G e e' ->
+  is_value e' \/ exists e'', G |= e' --> e''.
+Proof.
+  intros G e e' Hprogram Hmulti.
+  apply progress. exact (closed_program_multi_ok G e e' Hprogram Hmulti).
 Qed.
