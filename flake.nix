@@ -49,6 +49,7 @@
           coqPackages.coq
           coqPackages.stdlib
           coqPackages.coq-lsp
+          pkgs.ocaml
         ];
         shellHook = ''
           coq_makefile -f _CoqProject -o Makefile.coq

@@ -46,3 +46,6 @@ time-of-build-pretty.log
 /Makefile
 /Makefile.coq
 /Makefile.coq.conf
+/extract/search.ml
+/extract/search.mli
+/extract/demo

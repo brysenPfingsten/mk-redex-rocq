@@ -11,3 +11,5 @@ src/Semantics/WellFormed.v
 src/Semantics/Determinism.v
 src/Semantics/Delay.v
 src/Semantics/DelayFairness.v
+src/Semantics/Executable.v
+src/Semantics/RunnerCorrespondence.v
