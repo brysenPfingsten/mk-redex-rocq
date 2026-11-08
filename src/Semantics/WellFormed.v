@@ -961,14 +961,14 @@ Qed.
 
 
 Inductive state_in : tree -> state -> Prop :=
-  | SI_tgoal    : forall g s,           state_in (tgoal g s) s
-  | SI_tdelay   : forall t s,           state_in t s -> state_in (tdelay t) s
-  | SI_tproceed : forall r ts s,        state_in (tproceed r ts s) s
-  | SI_tconj    : forall t g s,         state_in t s -> state_in (tconj t g) s
-  | SI_tdisjL_l : forall t1 t2 s,      state_in t1 s -> state_in (tdisjL t1 t2) s
-  | SI_tdisjL_r : forall t1 t2 s,      state_in t2 s -> state_in (tdisjL t1 t2) s
-  | SI_tdisjR_l : forall t1 t2 s,      state_in t1 s -> state_in (tdisjR t1 t2) s
-  | SI_tdisjR_r : forall t1 t2 s,      state_in t2 s -> state_in (tdisjR t1 t2) s
+  | SI_tgoal    : forall g s,     state_in (tgoal g s) s
+  | SI_tdelay   : forall t s,     state_in t s -> state_in (tdelay t) s
+  | SI_tproceed : forall r ts s,  state_in (tproceed r ts s) s
+  | SI_tconj    : forall t g s,   state_in t s -> state_in (tconj t g) s
+  | SI_tdisjL_l : forall t1 t2 s, state_in t1 s -> state_in (tdisjL t1 t2) s
+  | SI_tdisjL_r : forall t1 t2 s, state_in t2 s -> state_in (tdisjL t1 t2) s
+  | SI_tdisjR_l : forall t1 t2 s, state_in t1 s -> state_in (tdisjR t1 t2) s
+  | SI_tdisjR_r : forall t1 t2 s, state_in t2 s -> state_in (tdisjR t1 t2) s
   .
 
 Hint Constructors state_in : core.

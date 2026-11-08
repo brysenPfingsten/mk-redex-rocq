@@ -660,6 +660,7 @@ Program Fixpoint walk_valid (t : term) {wf (sub_step s) t} : term :=
 Next Obligation.
   apply sub_step_bound. symmetry. exact Heq_anonymous.
 Qed.
+
 Solve All Obligations with
   (first [solve [split; intros; discriminate]
          | solve [apply sub_step_wf; exact Hacyclic]]).
