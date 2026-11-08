@@ -18,3 +18,11 @@ src/Semantics/DenotationOpening.v
 src/Semantics/GroundUnification.v
 src/Semantics/GroundModels.v
 src/Semantics/SearchSoundness.v
+src/Semantics/SearchCompleteness.v
+src/Semantics/Valuations.v
+src/Semantics/Derivations.v
+src/Semantics/Focus.v
+src/Semantics/Success.v
+src/Semantics/CompletenessProof.v
+src/Semantics/DenotationExamples.v
+src/Semantics/CompletenessExamples.v
