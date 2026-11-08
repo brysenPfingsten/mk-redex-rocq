@@ -17,20 +17,49 @@
       default = pkgs.stdenv.mkDerivation {
         pname = "miniKanren-coq";
         version = "0.1";
-        src = self;
+        # Keep local pre-push checks independent of existing .vo/.cmo files.
+        src = pkgs.lib.cleanSourceWith {
+          src = self;
+          filter = path: type:
+            pkgs.lib.cleanSourceFilter path type
+            && (let
+              name = baseNameOf path;
+            in
+              !(builtins.elem name [
+                "Makefile.coq"
+                "Makefile.coq.conf"
+                ".Makefile.coq.d"
+                "search.ml"
+                "search.mli"
+                "mk-search"
+                "demo"
+                "interface-tests"
+                "relation-tests"
+              ])
+              && builtins.match ".*\\.(vo|vos|vok|glob|cmi|cmo|cmx|o|aux|cache)$" name == null);
+        };
 
-        nativeBuildInputs = [coq pkgs.coqPackages.stdlib];
+        nativeBuildInputs = [coq pkgs.coqPackages.stdlib pkgs.ocaml];
+        doCheck = true;
 
         buildPhase = ''
           runHook preBuild
           coq_makefile -f _CoqProject -o Makefile.coq
           make -f Makefile.coq all
+          make -C extract all
           runHook postBuild
+        '';
+
+        checkPhase = ''
+          runHook preCheck
+          make -C extract check
+          runHook postCheck
         '';
 
         installPhase = ''
           runHook preInstall
-          make -f Makefile.coq install COQLIB=$out/lib/coq/
+          make -f Makefile.coq install COQLIBINSTALL=$out/lib/coq/user-contrib
+          install -Dm755 extract/mk-search $out/bin/mk-search
           runHook postInstall
         '';
       };

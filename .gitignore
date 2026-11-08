@@ -49,3 +49,8 @@ time-of-build-pretty.log
 /extract/search.ml
 /extract/search.mli
 /extract/demo
+
+/extract/mk-search
+/extract/interface-tests
+
+/extract/relation-tests
