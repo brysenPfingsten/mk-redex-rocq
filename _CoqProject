@@ -26,3 +26,6 @@ src/Semantics/Success.v
 src/Semantics/CompletenessProof.v
 src/Semantics/DenotationExamples.v
 src/Semantics/CompletenessExamples.v
+src/Semantics/Input.v
+src/Semantics/Interface.v
+src/Semantics/InputExamples.v
