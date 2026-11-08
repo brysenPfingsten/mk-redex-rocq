@@ -13,3 +13,8 @@ src/Semantics/Delay.v
 src/Semantics/DelayFairness.v
 src/Semantics/Executable.v
 src/Semantics/RunnerCorrespondence.v
+src/Semantics/Denotation.v
+src/Semantics/DenotationOpening.v
+src/Semantics/GroundUnification.v
+src/Semantics/GroundModels.v
+src/Semantics/SearchSoundness.v
