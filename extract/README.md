@@ -135,7 +135,7 @@ untrusted program inputs, rather than `run_validated`, `next_step` or
 Proofs inherit the existing proof irrelevance and dependent functional
 extensionality assumptions of executable unification. Extraction, OCaml
 compilation, parsing and display are outside the Rocq kernel's verification.
-See `../METATHEORY.md` for the full semantic result and scope.
+See `../docs/proofs.md` for the full semantic result and scope.
 
 ## Verification
 

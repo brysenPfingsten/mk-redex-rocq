@@ -1,7 +1,8 @@
 From Stdlib Require Import List Arith.
 Import ListNotations.
-Require Import MkRedex.Language.Terms.
 Set Default Goal Selector "!".
+
+Require Import MkRedex.Language.Terms.
 
 (* Substitutions *)
 

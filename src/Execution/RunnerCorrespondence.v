@@ -1,6 +1,8 @@
+From MkRedex.Language Require Import Scoping ScopedUnification Trees Environments.
 From Stdlib Require Import List Arith.
-From MkRedex.Language Require Import Trees Environments.
-From MkRedex.Semantics Require Import Reduction Determinism WellFormed Delay Executable.
+From MkRedex.Operational Require Import Reduction Determinism WellFormed Delay.
+From MkRedex.Execution Require Import Executable.
+Import ListNotations.
 Set Default Goal Selector "!".
 
 Lemma next_step_checked_none : forall G Henv e Hok,

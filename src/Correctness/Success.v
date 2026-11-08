@@ -1,6 +1,7 @@
+From MkRedex.Operational Require Import DelayTracking Scheduling Reduction Delay DelayFairness.
 From Stdlib Require Import List Arith.
 From MkRedex.Language Require Import Goals Substitution Trees Environments.
-From MkRedex.Semantics Require Import Reduction Delay DelayFairness Focus.
+From MkRedex.Correctness Require Import Focus.
 Import ListNotations.
 Set Default Goal Selector "!".
 

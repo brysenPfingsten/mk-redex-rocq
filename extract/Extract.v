@@ -1,7 +1,6 @@
 From Stdlib Require Import Extraction.
 From MkRedex.Language Require Import Trees.
-From MkRedex.Semantics Require Import Executable Interface.
-
+From MkRedex.Execution Require Import Executable Interface.
 From MkRedex.Examples Require Import Relations.
 
 Extraction Language OCaml.

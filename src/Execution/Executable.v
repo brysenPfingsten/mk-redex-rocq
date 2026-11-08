@@ -1,7 +1,8 @@
+From MkRedex.Execution Require Import Unifier.
+From MkRedex.Language Require Import Scoping ScopedUnification Terms Substitution Goals Environments Trees.
 From Stdlib Require Import List Arith.
+From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.
-From MkRedex.Language Require Import Terms Substitution Goals Environments Trees.
-From MkRedex.Semantics Require Import Reduction WellFormed Determinism.
 Set Default Goal Selector "!".
 
 (** Executable small-step search on well-formed inputs.

@@ -1,7 +1,7 @@
+From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Environments Trees.
 From Stdlib Require Import List Arith Lia.
+From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.
-From MkRedex.Language Require Import Terms Goals Environments Trees.
-From MkRedex.Semantics Require Import Reduction WellFormed Determinism.
 Set Default Goal Selector "!".
 
 (** [compose_ctx outer inner] puts [inner] in the hole of [outer]. *)

@@ -153,4 +153,3 @@ Proof.
   - reflexivity.
   - eapply Sat_unify; reflexivity.
 Qed.
-

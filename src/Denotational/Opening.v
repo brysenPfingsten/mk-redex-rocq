@@ -1,6 +1,6 @@
+From MkRedex.Language Require Import Scoping Terms Goals.
 From Stdlib Require Import List Arith Lia.
-From MkRedex.Language Require Import Terms Goals.
-From MkRedex.Semantics Require Import Denotation WellFormed.
+From MkRedex.Denotational Require Import Denotation.
 Import ListNotations.
 Set Default Goal Selector "!".
 

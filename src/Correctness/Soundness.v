@@ -1,7 +1,9 @@
+From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Substitution Environments Trees Unification.
 From Stdlib Require Import List Arith.
-From MkRedex.Language Require Import Terms Goals Substitution Environments Trees Unification.
-From MkRedex.Semantics Require Import Denotation DenotationOpening GroundUnification
-  Reduction WellFormed Executable.
+From MkRedex.Denotational Require Import Denotation Opening.
+From MkRedex.Correctness Require Import Unification.
+From MkRedex.Operational Require Import Reduction WellFormed.
+From MkRedex.Execution Require Import Executable.
 Import ListNotations.
 Set Default Goal Selector "!".
 

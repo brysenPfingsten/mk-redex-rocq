@@ -1,8 +1,9 @@
 From Stdlib Require Import List Arith.
-Import ListNotations.
 From MkRedex.Language Require Import Terms Substitution Goals Environments Trees.
-Require Import MkRedex.Semantics.Reduction.
+Import ListNotations.
 Set Default Goal Selector "!".
+
+Require Import MkRedex.Operational.Reduction.
 
 (* ================================================================== *)
 (*  Plug shape lemmas                                                 *)
@@ -185,8 +186,6 @@ Proof.
     + exact Hr.
 Qed.
 
-
-
 (* ================================================================== *)
 (*  S_ctx is incompatible with the other step shapes                   *)
 (* ================================================================== *)
@@ -235,6 +234,12 @@ Local Ltac ctx_contra :=
 (* ================================================================== *)
 (*  Determinism                                                         *)
 (* ================================================================== *)
+(** Compare the two step derivations. Root release/promotion shapes exclude
+    contextual head rewrites. For two contextual rewrites, unique decomposition
+    identifies their context and redex; head functionality then identifies the
+    destination. Unification functionality discharges the equality head case.
+    The context exclusions are why following a selected branch alone would
+    not suffice to prove determinism. *)
 Theorem step_deterministic : forall G e e1 e2,
   G |= e --> e1 ->
   G |= e --> e2 ->

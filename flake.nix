@@ -15,7 +15,7 @@
       coq = pkgs.coqPackages.coq;
     in {
       default = pkgs.stdenv.mkDerivation {
-        pname = "miniKanren-coq";
+        pname = "mk-redex-rocq";
         version = "0.1";
         # Keep local pre-push checks independent of existing .vo/.cmo files.
         src = pkgs.lib.cleanSourceWith {

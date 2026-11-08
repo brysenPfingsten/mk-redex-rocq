@@ -1,6 +1,8 @@
 From Stdlib Require Import List.
-From MkRedex.Language Require Import Terms Goals Environments.
-From MkRedex.Semantics Require Import Denotation.
+From MkRedex.Language Require Import Terms Goals Environments Substitution Trees.
+From MkRedex.Denotational Require Import Denotation.
+From MkRedex.Operational Require Import Reduction.
+From MkRedex.Correctness Require Import Soundness.
 Import ListNotations.
 Set Default Goal Selector "!".
 
@@ -34,9 +36,6 @@ Example malformed_parameter_rejected : forall rho,
 Proof.
   intros rho H. inversion H; subst. discriminate.
 Qed.
-
-From MkRedex.Language Require Import Substitution Trees.
-From MkRedex.Semantics Require Import Reduction SearchSoundness.
 
 (** Why completeness cannot simply reverse the soundness simulation:
     allocating fresh variables may require changing the valuation above the

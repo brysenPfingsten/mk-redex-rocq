@@ -1,11 +1,11 @@
 From Stdlib Require Import List.
 Import ListNotations.
-Require Import MkRedex.Language.Terms MkRedex.Language.Substitution MkRedex.Language.Goals.
 Set Default Goal Selector "!".
+
+Require Import MkRedex.Language.Terms MkRedex.Language.Substitution MkRedex.Language.Goals.
 
 Inductive tree : Type :=
   | tfail    : tree
-  (*| tans     : state -> tree*)
   | tgoal    : goal -> state -> tree
   | tdelay   : tree -> tree
   | tproceed : nat -> list term -> state -> tree
@@ -28,7 +28,6 @@ Definition observed_answers (e : expr) : list state :=
 Definition is_value (e : expr) : Prop :=
   match snd e with
   | tfail => True
-  (*| tans _ => True*)
   | tgoal gsucc _ => True
   | _ => False
   end.

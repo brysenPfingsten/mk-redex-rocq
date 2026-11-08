@@ -1,9 +1,12 @@
+From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Substitution Unification Environments Trees.
 From Stdlib Require Import List Arith Lia Logic.ProofIrrelevance.
-From MkRedex.Language Require Import Terms Goals Substitution Unification Environments Trees.
-From MkRedex.Semantics Require Import Denotation Input Reduction WellFormed Executable
-  SearchCompleteness SearchSoundness CompletenessProof RunnerCorrespondence.
+From MkRedex.Denotational Require Import Denotation.
+From MkRedex.Execution Require Import Input Executable RunnerCorrespondence.
+From MkRedex.Operational Require Import Reduction WellFormed.
+From MkRedex.Correctness Require Import Completeness Soundness.
 Import ListNotations.
 Set Default Goal Selector "!".
+
 
 Definition terminalb (e : expr) : bool :=
   match snd e with tfail | tgoal gsucc _ => true | _ => false end.

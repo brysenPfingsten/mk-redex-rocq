@@ -1,6 +1,6 @@
 From Stdlib Require Import List Arith.
-Import ListNotations.
 From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification.
+Import ListNotations.
 Set Default Goal Selector "!".
 
 (* ================================================================== *)

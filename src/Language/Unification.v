@@ -1,8 +1,9 @@
 From Stdlib Require Import List Arith Lia Program.Wf Logic.FunctionalExtensionality.
 Import ListNotations.
+Set Default Goal Selector "!".
+
 Require Import MkRedex.Language.Terms.
 Require Import MkRedex.Language.Substitution.
-Set Default Goal Selector "!".
 
 (* UnifyW *)
 

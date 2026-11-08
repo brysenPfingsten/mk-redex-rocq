@@ -1,7 +1,8 @@
 From Stdlib Require Import List.
 From MkRedex.Language Require Import Terms Goals.
-From MkRedex.Semantics Require Import Input.
+From MkRedex.Execution Require Import Input.
 Import ListNotations.
+Set Default Goal Selector "!".
 
 Example rejects_unknown_relation :
   validate_request [] 0 [] (grelcall 0 []) = Rejected InvalidGoal.
