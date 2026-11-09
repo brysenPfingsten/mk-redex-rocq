@@ -405,10 +405,6 @@ Proof.
     + simpl. now rewrite Herase.
 Qed.
 
-Lemma erase_mark_not_goal : forall m g s,
-  erase_mark m <> tgoal g s.
-Proof. intros m g s. destruct m; discriminate. Qed.
-
 Theorem step_mark_tracks : forall G m e',
   G |= erase_marked m --> e' ->
   (exists m', marked_carry G m m' /\ erase_marked m' = e') \/
@@ -427,8 +423,7 @@ Proof.
       * unfold erase_marked. simpl. congruence.
   - destruct m; simpl in *; try discriminate.
     + inversion H1; subst. exfalso.
-      apply (erase_mark_not_goal m gsucc s). 
-      symmetry. assumption.
+      destruct m; discriminate.
     + left. exists (ans ++ [s], m). split.
       * inversion H1; subst. apply carry_waiting_left_answer.
       * unfold erase_marked. simpl. congruence.
@@ -437,7 +432,7 @@ Proof.
       * inversion H1; subst. apply carry_waiting_right_answer.
       * unfold erase_marked. simpl. congruence.
     + inversion H1; subst. exfalso.
-      apply (erase_mark_not_goal m gsucc s). symmetry. eassumption.
+      destruct m; discriminate.
 Qed.
 
 (** This equivalence is the connection to the operational semantics in
@@ -449,11 +444,11 @@ Theorem marked_step_correspondence : forall G m e',
   (exists m', marked_carry G m m' /\ erase_marked m' = e') \/
   marked_release G m e'.
 Proof.
-  intros G m e'. split.
+  intros G [ans m] e'. split.
   - apply step_mark_tracks.
   - intros [[m' [Hcarry Heq]] | Hrelease].
-    + rewrite <- Heq. now apply marked_carry_erases.
-    + now apply marked_release_erases.
+    + rewrite <- Heq. exact (marked_carry_erases _ _ _ Hcarry).
+    + exact (marked_release_erases _ _ _ Hrelease).
 Qed.
 
 (** Finite carrying traces and release. *)
