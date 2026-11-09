@@ -140,3 +140,17 @@ as modules transitively imported by the runner. The Nix flake builds from
 filtered source, runs that audit and the executable tests, and installs the
 libraries and CLI. It does not install a pre-push hook or require a hosted CI
 service: `nix flake check -L` is the common local verification entry point.
+
+
+## Structural-unification implementation
+
+`Execution/StructuralUnifier.v` is the indexed McBride algorithm under
+construction as a replacement for the existing executable unifier. Its
+implementation uses no axioms or well-founded recursion. The proof modules
+`Correctness/StructuralUnification.v` and `StructuralUnificationBridge.v`
+establish equality of represented ground solutions and success/failure
+agreement with the original inductive relation, also without axioms. It is
+not yet wired into the search machine, and
+the existing executable correctness results still refer to `Execution/Unifier.v`.
+See [the implementation guide](structural-unification.md) for the recursion
+structure, new API, checks, and remaining correctness/integration work.

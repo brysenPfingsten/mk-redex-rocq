@@ -15,6 +15,7 @@ src/Operational/Delay.v
 src/Operational/DelayTracking.v
 src/Operational/Scheduling.v
 src/Operational/DelayFairness.v
+src/Execution/StructuralUnifier.v
 src/Execution/Unifier.v
 src/Execution/Executable.v
 src/Execution/RunnerCorrespondence.v
@@ -34,3 +35,7 @@ src/Examples/CompletenessExamples.v
 src/Examples/InputExamples.v
 src/Examples/Relations.v
 src/Examples/SyntaxExamples.v
+src/Examples/StructuralUnifierExamples.v
+src/Correctness/StructuralUnification.v
+src/Correctness/StructuralUnificationBridge.v
+src/Examples/StructuralEquivalenceExamples.v

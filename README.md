@@ -127,6 +127,14 @@ Start with `Language/Terms.v`, `Goals.v`, and `Trees.v`, then `Operational/Reduc
 The [architecture guide](docs/architecture.md) explains the module boundaries and dependencies.
 The [proof guide](docs/proofs.md) explains the major proofs in natural language, including their invariants, induction measures, and difficult cases.
 
+The McBride-style replacement unifier is implemented in
+`Execution/StructuralUnifier.v`, with scope-indexed terms and ordinary nested
+structural recursion. It is currently separate from the live search machine;
+its ground-solution equivalence to the inductive `Unify` relation is proved,
+while symbolic factorization and runtime integration remain to be completed. See the
+[implementation guide](docs/structural-unification.md) for the new API,
+computational examples, and precise verification status.
+
 ## Scope and trust
 
 The source-level soundness and completeness theorems have no axiom dependencies.

@@ -375,3 +375,35 @@ The executable tests check parser/display and integration behavior in addition t
 They do not replace the universal proofs.
 Extraction, OCaml compilation and runtime, and the handwritten parser/printer remain outside the kernel's verification of the source theorems.
 The checked entry point validates source requests; low-level extracted functions still have erased preconditions, and raw runtime checkpoints are not accepted by the public source interface.
+
+
+## Structural-unifier equivalence
+
+The indexed replacement is specified and proved separately from the existing
+list-based executable unifier. `Correctness/StructuralUnification.v` interprets
+an accumulator through the valuations that factor through its substitution.
+The proof of `amgu_correct` mirrors the nested recursion on scope and first
+term. Single-variable factorization handles an empty accumulator; interpreting
+a nonempty accumulator as one elimination followed by its tail reduces
+postponement to the smaller scope's induction hypothesis. Pair processing
+intersects the first and second component constraints in sequence. Occurs
+failure is justified by a strict ground-value size inequality for a
+non-variable term containing the variable.
+
+`Correctness/StructuralUnificationBridge.v` relates these valuations to the
+original `Unify` relation after erasing indexed terms. Both computations then
+represent exactly the input substitution models satisfying the equality.
+To obtain explicit success/failure agreement as well, the proof establishes
+that every successful output has some ground model: residual-variable
+assignment for ALists, and constructive finite normalization/grounding for
+closed acyclic binding lists. Thus a successful output cannot masquerade as
+an empty solution set.
+
+`structural_Unify_equivalence` combines original outcome uniqueness,
+success/failure agreement and pointwise equality of represented ground
+solutions. Structural indexing is proved sound and complete for original
+runtime terms closed at depth zero and a finite variable bound, extending
+the result beyond inputs already written with indexed constructors. The
+theorem does not identify substitution representations syntactically.
+See [the structural-unification guide](structural-unification.md) for the
+precise scope, theorem names, examples and remaining integration work.
