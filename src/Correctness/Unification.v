@@ -2,7 +2,7 @@ From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Subst
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Operational Require Import WellFormed Reduction.
-From MkRedex.Execution Require Import Executable.
+From MkRedex.Execution Require Import Executable Unifier.
 Import ListNotations.
 Set Default Goal Selector "!".
 
@@ -226,4 +226,103 @@ Proof.
       * apply ground_sub_acyclic.
       * apply ground_sub_models; assumption.
       * eapply ground_sub_unifier; eassumption.
+Qed.
+
+(** A competing solution need not contain the input bindings literally: it
+    must satisfy them through substitution application. Requiring acyclicity
+    prevents [unifier] from holding vacuously because application has no result. *)
+Definition compatible_unifier (s : sub) (t u : term) (candidate : sub) : Prop :=
+  acyclic_sub candidate /\ models_sub candidate s /\ unifier candidate t u.
+
+(** Success preserves the runtime domain and every visible input binding,
+    solves the equality, and is at least as general as every compatible
+    acyclic solution. Prefix extension additionally records the operational
+    representation of substitutions as lists with new bindings at the front. *)
+Record most_general_extension (c : nat) (s : sub) (t u : term) (answer : sub) : Prop := {
+  mgu_closed : closed_sub c answer;
+  mgu_acyclic : acyclic_sub answer;
+  mgu_extends : exists prefix, answer = prefix ++ s;
+  mgu_preserves_bindings : forall x v, lookup x s = Some v -> lookup x answer = Some v;
+  mgu_unifies : unifier answer t u;
+  mgu_most_general : forall candidate,
+    compatible_unifier s t u candidate -> more_general answer candidate
+}.
+
+(** One complete contract for an outcome. Exact agreement with [Unify]
+    identifies the specified operational outcome, rather than claiming that
+    all mathematically equivalent MGUs are syntactically identical. *)
+Record unification_correct_result (c : nat) (s : sub) (t u : term)
+  (result : option sub) : Prop := {
+  unification_spec : forall other, Unify t u s other <-> other = result;
+  unification_failure : result = None <-> ~ exists candidate, compatible_unifier s t u candidate;
+  unification_success : forall answer, result = Some answer ->
+    most_general_extension c s t u answer
+}.
+
+Lemma Unify_mgu : forall c s t u answer,
+  acyclic_sub s -> closed_sub c s -> closed_term 0 c t -> closed_term 0 c u ->
+  Unify t u s (Some answer) -> most_general_extension c s t u answer.
+Proof.
+  intros c s t u answer Hacyc Hsub Ht Hu Hresult. constructor.
+  - exact (Unify_closed c t u s answer Ht Hu Hsub Hresult).
+  - exact (Unify_acyclic t u s answer Hacyc Hresult).
+  - eapply Unify_extends; [exact Hresult|reflexivity].
+  - destruct Hresult as [w1 [w2 [_ [_ Hw]]]].
+    exact (UnifyW_norebind w1 w2 s (Some answer) Hw answer eq_refl).
+  - exact (Unify_sound t u s answer Hacyc Hresult).
+  - intros candidate [Hac [Hmodel Hunit]].
+    exact (Unify_most_general_model t u s answer Hresult candidate Hac Hmodel Hunit).
+Qed.
+
+Lemma Unify_correct_result : forall c s t u result,
+  acyclic_sub s -> closed_sub c s -> closed_term 0 c t -> closed_term 0 c u ->
+  Unify t u s result -> unification_correct_result c s t u result.
+Proof.
+  intros c s t u result Hacyc Hsub Ht Hu Hresult.
+  assert (Hsuccess : forall answer, result = Some answer -> most_general_extension c s t u answer).
+  { intros answer E. subst result. eapply Unify_mgu; eassumption. }
+  constructor.
+  - intro other. split.
+    + intro Hother. eapply Unify_functional; [exact Hother|exact Hresult].
+    + intro E. subst other. exact Hresult.
+  - split.
+    + intro E. subst result. intros [candidate [Hac [Hmodel Hunit]]].
+      destruct Hresult as [w1 [w2 [Hw1 [Hw2 Hfail]]]].
+      exact (UnifyW_complete_fail_model w1 w2 s Hacyc Hfail
+        t u Hw1 Hw2 candidate Hac Hmodel Hunit).
+    + intro Hnone. destruct result as [answer|]; [|reflexivity].
+      exfalso. apply Hnone. exists answer.
+      pose proof (Hsuccess answer eq_refl) as Hmgu.
+      split; [exact (mgu_acyclic c s t u answer Hmgu)|]. split.
+      * apply models_sub_of_extension. exact (mgu_preserves_bindings c s t u answer Hmgu).
+      * exact (mgu_unifies c s t u answer Hmgu).
+  - exact Hsuccess.
+Qed.
+
+(** Total correctness of the relational solver: valid inputs have exactly
+    one specified outcome, and that outcome decides existence of compatible
+    unifiers and computes a most general extension on success. The smaller
+    lemmas supply the algebraic facts; totality and functionality assemble
+    them into this single contract. See docs/proofs.md, Unification. *)
+Theorem unification_correct : forall c s t u,
+  acyclic_sub s -> closed_sub c s -> closed_term 0 c t -> closed_term 0 c u ->
+  exists! result, unification_correct_result c s t u result.
+Proof.
+  intros c s t u Hacyc Hsub Ht Hu.
+  destruct (Unify_total c s t u Hacyc Hsub Ht Hu) as [result Hresult].
+  exists result. split.
+  - eapply Unify_correct_result; eassumption.
+  - intros other Hother.
+    apply (proj1 (unification_spec c s t u other Hother result)). exact Hresult.
+Qed.
+
+(** The executable function is total on its proof-indexed valid domain and
+    satisfies the same contract. Its internal increasing-fuel search is
+    justified by unification totality, not by an assumed runtime fuel bound. *)
+Theorem unify_fn_correct : forall c s t u Hacyc Hsub Ht Hu,
+  unification_correct_result c s t u (unify_fn t u s c Hacyc Hsub Ht Hu).
+Proof.
+  intros c s t u Hacyc Hsub Ht Hu.
+  apply Unify_correct_result; try assumption.
+  apply (proj2 (unify_fn_spec c s t u Hacyc Hsub Ht Hu _)). reflexivity.
 Qed.

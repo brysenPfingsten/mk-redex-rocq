@@ -85,7 +85,8 @@ index. These modules depend on source scoping, not on search scheduling.
 `Correctness/Unification.v` connects ground valuations to substitution
 application and the existing unifier models. It contains both directions of
 ground unification correctness and the finite substitution encoding of a
-valuation. Keeping these together makes the bridge visible without
+valuation. It also packages the solver guarantees as `unification_correct_result`
+and proves `unification_correct` and `unify_fn_correct`. Keeping these together makes the bridge visible without
 splitting a short soundness lemma away from the completeness construction.
 
 `Soundness.v` interprets trees and expressions and proves backward semantic

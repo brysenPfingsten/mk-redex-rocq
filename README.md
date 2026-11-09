@@ -15,7 +15,7 @@ Disequality, negation, cuts, and constraint stores beyond substitutions are not 
 | Determinism | `step_deterministic`: an expression has at most one next expression. [Operational/Determinism.v](src/Operational/Determinism.v) |
 | Machine safety | `progress`, `step_ok`, and `multi_ok`: valid expressions are terminal or can step, and execution preserves the runtime invariant. [Operational/WellFormed.v](src/Operational/WellFormed.v) |
 | Scheduling | `global_no_stranding`: a chosen delay occurrence is released after finitely many steps in a valid execution. [Operational/DelayFairness.v](src/Operational/DelayFairness.v) |
-| Unification | Soundness, most-generality, failure completeness, totality on valid inputs, and correspondence with executable unification. [Proof explanation](docs/proofs.md#unification) |
+| Unification | `unification_correct` packages a unique specified outcome, exact failure detection, and a most general extension on success; `unify_fn_correct` establishes the same contract for execution. [Proof explanation](docs/proofs.md#a-single-solver-correctness-contract) |
 | Search soundness | `search_soundness`: every ground assignment represented by an observed answer satisfies the original goal on the query variables. [Correctness/Soundness.v](src/Correctness/Soundness.v) |
 | Search completeness | `source_search_completeness`: every source solution is represented by an answer in some finite execution prefix. [Correctness/Completeness.v](src/Correctness/Completeness.v) |
 | Executable correspondence | `next_step_spec`, `run_steps_exact`, and `multi_run_steps`: executable steps agree with reduction, and every finite reduction endpoint can be reproduced with enough fuel. [Execution](src/Execution) |
