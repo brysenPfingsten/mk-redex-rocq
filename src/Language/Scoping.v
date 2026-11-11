@@ -3,34 +3,6 @@ From MkRedex.Language Require Import WellFormed Terms Substitution Goals Environ
 Import ListNotations.
 Set Default Goal Selector "!".
 
-(** Number of IDs below [c] that are still unbound in [s]. *)
-Fixpoint free_count (c : nat) (s : sub) : nat :=
-  match c with
-  | 0 => 0
-  | S c' => free_count c' s +
-      match lookup c' s with None => 1 | Some _ => 0 end
-  end.
-
-Lemma free_count_bind_above : forall c s x u,
-  c <= x -> free_count c ((x, u) :: s) = free_count c s.
-Proof.
-  induction c as [|c IH]; intros s x u Hle; simpl; [reflexivity |].
-  rewrite IH by lia.
-  simpl. destruct (Nat.eqb_spec c x); [lia | reflexivity].
-Qed.
-
-Lemma free_count_bind_below : forall c s x u,
-  x < c -> lookup x s = None ->
-  free_count c ((x, u) :: s) < free_count c s.
-Proof.
-  induction c as [|c IH]; intros s x u Hlt Hfree; [lia |].
-  destruct (Nat.eq_dec x c) as [-> | Hneq].
-  - simpl. rewrite free_count_bind_above by lia.
-    simpl. rewrite Nat.eqb_refl, Hfree. lia.
-  - simpl. destruct (Nat.eqb_spec c x); [lia |].
-    pose proof (IH s x u ltac:(lia) Hfree). lia.
-Qed.
-
 Lemma ok_goal_relcall_open_args : forall G c r ts,
   ok_goal G 0 c (grelcall r ts) -> runtime_open_args c ts.
 Proof.

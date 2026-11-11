@@ -3,6 +3,35 @@ From MkRedex.Language Require Import Terms Substitution Goals Environments Trees
 Import ListNotations.
 Set Default Goal Selector "!".
 
+(** Number of allocated IDs still unbound. This is the first component of
+    the lexicographic measure for unification totality below. *)
+Fixpoint free_count (c : nat) (s : sub) : nat :=
+  match c with
+  | 0 => 0
+  | S c' => free_count c' s +
+      match lookup c' s with None => 1 | Some _ => 0 end
+  end.
+
+Lemma free_count_bind_above : forall c s x u,
+  c <= x -> free_count c ((x, u) :: s) = free_count c s.
+Proof.
+  induction c as [|c IH]; intros s x u Hle; simpl; [reflexivity |].
+  rewrite IH by lia.
+  simpl. destruct (Nat.eqb_spec c x); [lia | reflexivity].
+Qed.
+
+Lemma free_count_bind_below : forall c s x u,
+  x < c -> lookup x s = None ->
+  free_count c ((x, u) :: s) < free_count c s.
+Proof.
+  induction c as [|c IH]; intros s x u Hlt Hfree; [lia |].
+  destruct (Nat.eq_dec x c) as [-> | Hneq].
+  - simpl. rewrite free_count_bind_above by lia.
+    simpl. rewrite Nat.eqb_refl, Hfree. lia.
+  - simpl. destruct (Nat.eqb_spec c x); [lia |].
+    pose proof (IH s x u ltac:(lia) Hfree). lia.
+Qed.
+
 (** A successful [Unify] on closed terms yields a closed substitution. *)
 Lemma UnifyW_closed : forall c w1 w2 s s',
   ok_term 0 c w1 ->
