@@ -23,14 +23,6 @@ Proof.
   split; [reflexivity | exact H].
 Qed.
 
-Lemma plug_injective : forall E r1 r2,
-  plug E r1 = plug E r2 -> r1 = r2.
-Proof.
-  induction E; simpl in *; intros.
-  1: assumption.
-  1-3: apply IHE; inversion H; reflexivity.
-Qed.
-
 (* ================================================================== *)
 (*  Plugging a redex into a non-hole context kills the redex           *)
 (* ================================================================== *)

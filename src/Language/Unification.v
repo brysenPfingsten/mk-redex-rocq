@@ -186,15 +186,6 @@ Proof.
   - exact Hz.
 Qed.
 
-Lemma lookup_app_r : forall (x : nat) (prefix s : sub),
-  lookup x prefix = None ->
-  lookup x (prefix ++ s) = lookup x s.
-Proof.
-  intros x prefix. induction prefix as [| [y t] rest IH]; intros s Hpre; simpl in *.
-  - reflexivity.
-  - destruct (Nat.eqb x y); [discriminate | exact (IH s Hpre)].
-Qed.
-
 Lemma ApplySub_suffix_extend : forall s s',
   (forall x t, lookup x s = Some t -> lookup x s' = Some t) ->
   forall t r, ApplySub s' t r ->
@@ -705,41 +696,6 @@ Proof.
   - intro Heq. destruct (Walk_total s Hacyclic t) as [out Hwalk].
     pose proof (walk_valid_of_Walk s t out Hwalk Hacyclic) as Hout.
     rewrite Heq in Hout. subst. exact Hwalk.
-Qed.
-
-Lemma DeepOccurs_tsize : forall s x u,
-  DeepOccurs s x u ->
-  forall s2,
-    (forall y t, lookup y s = Some t -> lookup y s2 = Some t) ->
-    forall r1, ApplySub s2 (tvar x) r1 ->
-    forall r2, ApplySub s2 u r2 ->
-    tsize r1 <= tsize r2.
-Proof.
-  intros s x u HDO.
-  induction HDO as [
-    | y t' Hly HDO' IH
-    | a b HDO' IH
-    | a b HDO' IH
-  ]; intros s2 Hext r1 Happ1 r2 Happ2.
-  - (* DO_var: u = tvar x *)
-    rewrite (ApplySub_functional _ _ _ _ Happ1 Happ2). apply Nat.le_refl.
-  - (* DO_walk: u = tvar y, lookup y s = Some t' *)
-    assert (Hly2 : lookup y s2 = Some t') by exact (Hext y t' Hly).
-    inversion Happ2 as [y' Hfree | y' u' r' Hlook Hsubu | | ]; subst.
-    + congruence.
-    + rewrite Hly2 in Hlook. injection Hlook as <-.
-      exact (IH s2 Hext r1 Happ1 r2 Hsubu).
-    + exfalso. match goal with H : forall _, tvar _ <> tvar _ |- _ => exact (H y eq_refl) end.
-  - (* DO_cons_l: u = tcons a b, DeepOccurs s x a *)
-    inversion Happ2 as [| | a' b' ra rb Ha Hb | t' Hnotvar Hnotcons]; subst.
-    { assert (H : tsize r1 <= tsize ra) by exact (IH s2 Hext r1 Happ1 ra Ha).
-      simpl. lia. }
-    { exfalso. exact (Hnotcons a b eq_refl). }
-  - (* DO_cons_r: u = tcons a b, DeepOccurs s x b *)
-    inversion Happ2 as [| | a' b' ra rb Ha Hb | t' Hnotvar Hnotcons]; subst.
-    { assert (H : tsize r1 <= tsize rb) by exact (IH s2 Hext r1 Happ1 rb Hb).
-      simpl. lia. }
-    { exfalso. exact (Hnotcons a b eq_refl). }
 Qed.
 
 (* Completeness and Most General Unifier *)

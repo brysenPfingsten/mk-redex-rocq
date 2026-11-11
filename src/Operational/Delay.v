@@ -26,13 +26,6 @@ Fixpoint ctx_depth (E : ctx) : nat :=
   | cdisjL E _ | cdisjR _ E | cconj E _ => S (ctx_depth E)
   end.
 
-Lemma ctx_depth_compose : forall outer inner,
-  ctx_depth (compose_ctx outer inner) =
-  ctx_depth outer + ctx_depth inner.
-Proof.
-  induction outer; intros inner; simpl; try rewrite IHouter; lia.
-Qed.
-
 (** This is the tree placed under the delay after it bubbles to the root.
     A disjunction changes its active side as the delay rotates out. *)
 Fixpoint delay_payload (E : ctx) (t : tree) : tree :=

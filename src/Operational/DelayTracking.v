@@ -460,14 +460,6 @@ Inductive tracked_finish (G : env) : marked_expr -> expr -> Prop :=
       marked_carry G m m' -> tracked_finish G m' e' ->
       tracked_finish G m e'.
 
-Lemma tracked_finish_erases : forall G m e',
-  tracked_finish G m e' -> multi G (erase_marked m) e'.
-Proof.
-  intros G m e' Hfinish. induction Hfinish.
-  - eapply multi_step; [apply marked_release_erases; eassumption | constructor].
-  - eapply multi_step; [apply marked_carry_erases; eassumption | exact IHHfinish].
-Qed.
-
 Theorem active_mark_tracked_finish : forall G ans m,
   active_mark m -> exists e', tracked_finish G (ans, m) e'.
 Proof.
