@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Substitution Environments Trees Unification.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Goals Substitution Environments Trees Unification.
 From Stdlib Require Import List Arith.
 From MkRedex.Denotational Require Import Denotation Opening.
 From MkRedex.Correctness Require Import Unification.
@@ -53,7 +53,7 @@ Proof.
     split; [exact Hmodel|]. apply Sat_conj; assumption.
   - destruct Hmeaning as [Hmodel Hbody]. split; [exact Hmodel|].
     set (args := map tvar (seq (st_cnt s) k)) in *.
-    pose proof (fresh_args_open_args (st_cnt s) (st_cnt s) k (le_n _)) as Ha.
+    pose proof (fresh_args_ok (st_cnt s) (st_cnt s) k (le_n _)) as Ha.
     destruct (eval_terms_total rho (st_cnt s + k) args Ha) as [values He].
     eapply Sat_fresh with (values := values).
     + pose proof (eval_terms_length rho [] args values He) as Hlen.

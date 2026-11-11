@@ -11,7 +11,7 @@ Proof.
   exact (proj2 Hclosed).
 Qed.
 
-Lemma open_term_closed : forall d c t args,
+Lemma open_term_ok : forall d c t args,
   ok_term (length args + d) c t ->
   Forall (ok_term d c) args ->
   ok_term d c (open_term d args t).
@@ -40,7 +40,7 @@ Proof.
   destruct H1. split; [apply IHt1 | apply IHt2]; assumption.
 Qed.
 
-Lemma open_goal_closed : forall G d c g args,
+Lemma open_goal_ok : forall G d c g args,
   ok_goal G (length args + d) c g ->
   Forall (ok_term d c) args ->
   ok_goal G d c (open_goal d args g).
@@ -49,7 +49,7 @@ Proof.
   induction g; intros d c args H1 H2; simpl in *.
   - (*succ*) exact H1.
   - (*unify*) destruct H1 as [Hct1 Hct2].
-    split; apply open_term_closed; assumption.
+    split; apply open_term_ok; assumption.
   - (*relcall*) destruct (nth_error G n).
     * destruct p as [n0 g0].
       destruct H1 as [Hlen Hforall].
@@ -57,7 +57,7 @@ Proof.
       + rewrite length_map. exact Hlen.
       + rewrite Forall_map.
         eapply Forall_impl.
-        -- intros t Ht. apply open_term_closed.
+        -- intros t Ht. apply open_term_ok.
            ** exact Ht.
            ** exact H2.
         -- exact Hforall.
@@ -78,44 +78,14 @@ Proof.
       + exact H2.
 Qed.
 
-Lemma open_closed : forall G c g args,
+Lemma open_ok : forall G c g args,
   ok_goal G (length args) c g ->
   Forall (ok_term 0 c) args ->
   ok_goal G 0 c (open args g).
 Proof.
-  intros G c g. revert G c.
-  induction g; intros G c args H1 H2; simpl in *.
-  - (*succ*) exact H1.
-  - (*unify*) destruct H1 as [Ht Ht0].
-    split; apply open_term_closed.
-    2, 4: exact H2.
-    * rewrite Nat.add_0_r. exact Ht.
-    * rewrite Nat.add_0_r. exact Ht0.
-  - (*relcall*) destruct (nth_error G n).
-    * destruct p as [n0 g0].
-      destruct H1 as [Hlen Hforall].
-      split.
-      + rewrite length_map. exact Hlen.
-      + clear Hlen. induction Hforall as [| x l' Hx _ IH]; constructor.
-        -- apply open_term_closed.
-           ** rewrite Nat.add_0_r. exact Hx.
-           ** exact H2.
-        -- exact IH.
-    * exact H1.
-  - (*disj*) destruct H1 as [Hg1 Hg2]. split.
-    * apply IHg1; assumption.
-    * apply IHg2; assumption.
-  - (*conj*) destruct H1 as [Hg1 Hg2]. split.
-    * apply IHg1; assumption.
-    * apply IHg2; assumption.
-  - (*fresh*) apply open_goal_closed.
-    * exact H1.
-    * eapply Forall_impl.
-      + intros t Ht.
-        eapply ok_term_mono with (d:=0) (d':=n) (c:=c) (c':=c).
-        1, 2: lia.
-        exact Ht.
-      + exact H2.
+  intros G c g args Hgoal Hargs.
+  unfold open.
+  apply open_goal_ok; [rewrite Nat.add_0_r; exact Hgoal | exact Hargs].
 Qed.
 
 Lemma scoped_sub_mono : forall c c' s,
@@ -145,8 +115,8 @@ Proof.
   - apply IHg with (d := d + n) (c := c); [lia | lia | exact H].
 Qed.
 
-(* Looking up in a closed sub gives a closed term *)
-Lemma lookup_closed : forall c x s t,
+(* Looking up in a scoped substitution gives a well-formed term. *)
+Lemma lookup_ok : forall c x s t,
   scoped_sub c s -> lookup x s = Some t -> ok_term 0 c t.
 Proof.
   induction s as [|[y u] s' IH]; intros t Hs Hlook; simpl in *.
@@ -157,7 +127,7 @@ Proof.
     * apply IH; assumption.
 Qed.
 
-Lemma Walk_closed : forall c t1 t2 s,
+Lemma Walk_ok : forall c t1 t2 s,
   ok_term 0 c t1 ->
   scoped_sub c s ->
   Walk s t1 t2 ->
@@ -165,10 +135,10 @@ Lemma Walk_closed : forall c t1 t2 s,
 Proof.
   intros c t1 t2 s Hct Hcs Hwalk.
   induction Hwalk; try assumption.
-  apply IHHwalk. exact (lookup_closed _ _ _ _ Hcs H).
+  apply IHHwalk. exact (lookup_ok _ _ _ _ Hcs H).
 Qed.
 
-Lemma fresh_args_closed : forall start bound k,
+Lemma fresh_args_ok : forall start bound k,
   start <= bound ->
   Forall (ok_term 0 (bound + k)) (map tvar (seq start k)).
 Proof.
@@ -176,8 +146,3 @@ Proof.
   apply in_map_iff in Hin. destruct Hin as [i [<- Hi]].
   apply in_seq in Hi. simpl. lia.
 Qed.
-
-Lemma fresh_args_open_args : forall start bound k,
-  start <= bound ->
-  runtime_open_args (bound + k) (map tvar (seq start k)).
-Proof. exact fresh_args_closed. Qed.

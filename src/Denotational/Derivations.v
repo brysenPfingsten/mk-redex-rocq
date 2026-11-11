@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import WellFormed Scoping Terms Goals Environments.
+From MkRedex.Language Require Import WellFormed WellFormedProperties Terms Goals Environments.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation Opening Valuations.
 Import ListNotations.

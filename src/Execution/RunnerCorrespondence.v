@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Trees Environments.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Trees Environments.
 From Stdlib Require Import List Arith.
 From MkRedex.Operational Require Import Reduction Determinism WellFormed Delay.
 From MkRedex.Execution Require Import Executable.

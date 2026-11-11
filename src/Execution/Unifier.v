@@ -1,5 +1,5 @@
 From Stdlib Require Import List Arith Lia Logic.ProofIrrelevance Logic.ConstructiveEpsilon.
-From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification WellFormed Scoping ScopedUnification.
+From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification WellFormed WellFormedProperties ScopedUnification.
 Import ListNotations.
 Set Default Goal Selector "!".
 
@@ -193,9 +193,9 @@ Proof.
   assert (Hw2 : Walk s t2 w2) by
     (apply (proj2 (walk_valid_spec s Hacyclic t2 w2)); reflexivity).
   assert (Hcw1 : ok_term 0 c w1) by
-    exact (Walk_closed c t1 w1 s Ht1 Hsub Hw1).
+    exact (Walk_ok c t1 w1 s Ht1 Hsub Hw1).
   assert (Hcw2 : ok_term 0 c w2) by
-    exact (Walk_closed c t2 w2 s Ht2 Hsub Hw2).
+    exact (Walk_ok c t2 w2 s Ht2 Hsub Hw2).
   destruct (UnifyW_fn c s w1 w2 Hacyclic Hsub Hcw1 Hcw2
     (Walk_idempotent s t1 w1 Hw1)
     (Walk_idempotent s t2 w2 Hw2)) as [result Hresult].

@@ -1,5 +1,5 @@
 From Stdlib Require Import List Arith Lia.
-From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification WellFormed Scoping ScopedUnification.
+From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification WellFormed WellFormedProperties ScopedUnification.
 From MkRedex.Operational Require Import Reduction.
 Import ListNotations.
 Set Default Goal Selector "!".
@@ -89,7 +89,7 @@ Proof.
   destruct Hhead; simpl in *; try tauto.
   - destruct Htt as [[Ht1 Ht2] Hsub]. split; [exact I |].
     split.
-    + exact (Unify_closed (st_cnt s) t1 t2 (st_sub s) s' Ht1 Ht2 (proj1 Hsub) H).
+    + exact (Unify_scoped (st_cnt s) t1 t2 (st_sub s) s' Ht1 Ht2 (proj1 Hsub) H).
     + exact (Unify_acyclic t1 t2 (st_sub s) s' (proj2 Hsub) H).
   - destruct Htt as [[Hg1 Hg2] Hsub]. split.
     + split; assumption.
@@ -97,11 +97,11 @@ Proof.
       * exists (st_cnt s). exact Hg2.
       * intros out Hin. apply state_in_tgoal_eq in Hin. subst. exact Hg2.
   - destruct Htt as [Hg Hsub]. split.
-    + apply open_goal_closed.
+    + apply open_goal_ok.
       * rewrite length_map, length_seq, Nat.add_0_r.
         apply (ok_goal_mono G k k (st_cnt s) (st_cnt s + k) g); try lia.
         exact Hg.
-      * exact (fresh_args_closed (st_cnt s) (st_cnt s) k (Nat.le_refl _)).
+      * exact (fresh_args_ok (st_cnt s) (st_cnt s) k (Nat.le_refl _)).
     + split.
       * apply scoped_sub_mono with (c := st_cnt s); [lia | exact (proj1 Hsub)].
       * exact (proj2 Hsub).
@@ -111,7 +111,7 @@ Proof.
     + contradiction.
   - rewrite H in Htt.
     destruct Htt as [Hlen [Hargs Hsub]]. split; [|exact Hsub].
-    apply open_closed.
+    apply open_ok.
     + rewrite Hlen.
       apply (ok_goal_mono G n n 0 (st_cnt s) body); try lia.
       exact (Hce r n body H).

@@ -28,16 +28,17 @@ counter and conjunction continuations at every counter their left subtree
 can produce. The module also defines the structural `state_in` relation,
 without importing the reduction rules.
 
-`Language/Scoping.v` proves opening safety, monotonicity in the counter, and
-fresh-argument bounds for those judgments. It contains no second tree
-validity check.
+`Language/WellFormedProperties.v` proves opening safety, monotonicity in the
+counter, and fresh-argument bounds for those judgments. It contains no second
+tree validity check. The unification-specific count of unbound IDs lives with
+the totality proof in `Language/ScopedUnification.v`.
 
 `Language/Unification.v` is the relational specification and its general
 metatheory: functionality, extension, acyclicity, total walking/application,
 soundness, most-generality, and failure completeness. This remains a single
 substantial module because the proofs share a model/factorization vocabulary
 and a common dependency chain. `Language/ScopedUnification.v` adds the
-results needing allocation bounds: preservation of closed substitutions and
+results needing allocation bounds: preservation of scoped substitutions and
 totality of unification. The executable unifier is separate in
 `Execution/Unifier.v`; machine preservation no longer has to contain its
 fuel-search implementation.

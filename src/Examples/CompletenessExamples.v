@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Goals Substitution Environments Trees.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Operational Require Import WellFormed.

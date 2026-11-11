@@ -1,5 +1,5 @@
 From MkRedex.Execution Require Import Unifier.
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Substitution Goals Environments Trees.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Substitution Goals Environments Trees.
 From Stdlib Require Import List Arith.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.

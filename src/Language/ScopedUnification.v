@@ -1,5 +1,5 @@
 From Stdlib Require Import List Arith Lia.
-From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification WellFormed Scoping.
+From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification WellFormed WellFormedProperties.
 Import ListNotations.
 Set Default Goal Selector "!".
 
@@ -32,8 +32,8 @@ Proof.
     pose proof (IH s x u ltac:(lia) Hfree). lia.
 Qed.
 
-(** A successful [Unify] on closed terms yields a closed substitution. *)
-Lemma UnifyW_closed : forall c w1 w2 s s',
+(** A successful [Unify] on well-formed terms yields a scoped substitution. *)
+Lemma UnifyW_scoped : forall c w1 w2 s s',
   ok_term 0 c w1 ->
   ok_term 0 c w2 ->
   scoped_sub c s ->
@@ -50,12 +50,12 @@ Proof.
   - injection Hr as <-. repeat split; assumption.
   - destruct Hct1 as [Hcta1 Hcta2].
     destruct Hct2 as [Hctb1 Hctb2].
-    pose proof (Walk_closed _ _ _ _ Hcta1 Hcs H) as Hctwa1.
-    pose proof (Walk_closed _ _ _ _ Hctb1 Hcs H0) as Hctwb1.
+    pose proof (Walk_ok _ _ _ _ Hcta1 Hcs H) as Hctwa1.
+    pose proof (Walk_ok _ _ _ _ Hctb1 Hcs H0) as Hctwb1.
     assert (Hcs1 : scoped_sub c s1).
     { eapply IHHunifyW1; try eassumption; try reflexivity.  }
-    pose proof (Walk_closed _ _ _ _ Hcta2 Hcs1 H1) as Hctwa2.
-    pose proof (Walk_closed _ _ _ _ Hctb2 Hcs1 H2) as Hctwb2.
+    pose proof (Walk_ok _ _ _ _ Hcta2 Hcs1 H1) as Hctwa2.
+    pose proof (Walk_ok _ _ _ _ Hctb2 Hcs1 H2) as Hctwb2.
     eapply IHHunifyW2; try eassumption.
 Qed.
 
@@ -80,13 +80,13 @@ Proof.
     { apply free_count_bind_below; [exact Ht2 | exact H]. }
     split; lia.
   - destruct Ht1 as [Ha1 Ha2], Ht2 as [Hb1 Hb2].
-    pose proof (Walk_closed c a1 wa1 s Ha1 Hsub H) as Hwa1.
-    pose proof (Walk_closed c b1 wb1 s Hb1 Hsub H0) as Hwb1.
+    pose proof (Walk_ok c a1 wa1 s Ha1 Hsub H) as Hwa1.
+    pose proof (Walk_ok c b1 wb1 s Hb1 Hsub H0) as Hwb1.
     destruct (IHHunify1 s1 eq_refl Hwa1 Hwb1 Hsub) as [Hle1 Hstrict1].
-    pose proof (UnifyW_closed c wa1 wb1 s s1 Hwa1 Hwb1 Hsub Hunify1)
+    pose proof (UnifyW_scoped c wa1 wb1 s s1 Hwa1 Hwb1 Hsub Hunify1)
       as Hsub1.
-    pose proof (Walk_closed c a2 wa2 s1 Ha2 Hsub1 H1) as Hwa2.
-    pose proof (Walk_closed c b2 wb2 s1 Hb2 Hsub1 H2) as Hwb2.
+    pose proof (Walk_ok c a2 wa2 s1 Ha2 Hsub1 H1) as Hwa2.
+    pose proof (Walk_ok c b2 wb2 s1 Hb2 Hsub1 H2) as Hwb2.
     destruct (IHHunify2 out Hr Hwa2 Hwb2 Hsub1) as [Hle2 Hstrict2].
     split; [lia |].
     intro Hneq. destruct (sub_eq_dec s1 s) as [-> | Hneq1].
@@ -228,9 +228,9 @@ Proof.
     destruct (Walk_total s Hacyclic w1_1) as [wa1 Hwa1].
     destruct (Walk_total s Hacyclic w2_1) as [wb1 Hwb1].
     assert (Hcwa1 : ok_term 0 c wa1) by
-      exact (Walk_closed c w1_1 wa1 s Hca1 Hsub Hwa1).
+      exact (Walk_ok c w1_1 wa1 s Hca1 Hsub Hwa1).
     assert (Hcwb1 : ok_term 0 c wb1) by
-      exact (Walk_closed c w2_1 wb1 s Hcb1 Hsub Hwb1).
+      exact (Walk_ok c w2_1 wb1 s Hcb1 Hsub Hwb1).
     assert (Happa1 : ApplySub s wa1 ra1) by
       (eapply Walk_ApplySub_compat; [exact Hwa1 | intros; assumption | exact Ha1]).
     assert (Happb1 : ApplySub s wb1 rb1) by
@@ -247,13 +247,13 @@ Proof.
     assert (Hac1 : acyclic_sub s1) by
       exact (UnifyW_acyclic wa1 wb1 s s1 Hacyclic Hfirst).
     assert (Hsub1 : scoped_sub c s1) by
-      exact (UnifyW_closed c wa1 wb1 s s1 Hcwa1 Hcwb1 Hsub Hfirst).
+      exact (UnifyW_scoped c wa1 wb1 s s1 Hcwa1 Hcwb1 Hsub Hfirst).
     destruct (Walk_total s1 Hac1 w1_2) as [wa2 Hwa2].
     destruct (Walk_total s1 Hac1 w2_2) as [wb2 Hwb2].
     assert (Hcwa2 : ok_term 0 c wa2) by
-      exact (Walk_closed c w1_2 wa2 s1 Hca2 Hsub1 Hwa2).
+      exact (Walk_ok c w1_2 wa2 s1 Hca2 Hsub1 Hwa2).
     assert (Hcwb2 : ok_term 0 c wb2) by
-      exact (Walk_closed c w2_2 wb2 s1 Hcb2 Hsub1 Hwb2).
+      exact (Walk_ok c w2_2 wb2 s1 Hcb2 Hsub1 Hwb2).
     destruct (ApplySub_total s1 Hac1 wa2) as [outa2 Happa2].
     destruct (ApplySub_total s1 Hac1 wb2) as [outb2 Happb2].
     assert (Hlex2 : lex_count_size
@@ -294,16 +294,16 @@ Proof.
   destruct (Walk_total s Hacyclic t1) as [w1 Hw1].
   destruct (Walk_total s Hacyclic t2) as [w2 Hw2].
   assert (Hcw1 : ok_term 0 c w1) by
-    exact (Walk_closed c t1 w1 s Ht1 Hsub Hw1).
+    exact (Walk_ok c t1 w1 s Ht1 Hsub Hw1).
   assert (Hcw2 : ok_term 0 c w2) by
-    exact (Walk_closed c t2 w2 s Ht2 Hsub Hw2).
+    exact (Walk_ok c t2 w2 s Ht2 Hsub Hw2).
   destruct (UnifyW_total c s w1 w2 Hacyclic Hsub Hcw1 Hcw2
     (Walk_idempotent s t1 w1 Hw1) (Walk_idempotent s t2 w2 Hw2))
     as [result Hresult].
   exists result. exists w1, w2. repeat split; assumption.
 Qed.
 
-Lemma Unify_closed : forall c t1 t2 s s',
+Lemma Unify_scoped : forall c t1 t2 s s',
   ok_term 0 c t1 ->
   ok_term 0 c t2 ->
   scoped_sub c s ->
@@ -312,7 +312,7 @@ Lemma Unify_closed : forall c t1 t2 s s',
 Proof.
   intros c t1 t2 s s' Hct1 Hct2 Hcs Hunify.
   destruct Hunify as (w1 & w2 & Hw1 & Hw2 & HunifyW).
-  pose proof (Walk_closed _ _ _ _ Hct1 Hcs Hw1) as Hctw1.
-  pose proof (Walk_closed _ _ _ _ Hct2 Hcs Hw2) as Hctw2.
-  exact (UnifyW_closed c w1 w2 s s' Hctw1 Hctw2 Hcs HunifyW).
+  pose proof (Walk_ok _ _ _ _ Hct1 Hcs Hw1) as Hctw1.
+  pose proof (Walk_ok _ _ _ _ Hct2 Hcs Hw2) as Hctw2.
+  exact (UnifyW_scoped c w1 w2 s s' Hctw1 Hctw2 Hcs HunifyW).
 Qed.

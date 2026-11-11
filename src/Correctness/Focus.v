@@ -1,5 +1,5 @@
 From MkRedex.Operational Require Import DelayTracking Scheduling Reduction WellFormed Delay DelayFairness.
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Goals Substitution Environments Trees.
 From Stdlib Require Import List Lia.
 Import ListNotations.
 Set Default Goal Selector "!".

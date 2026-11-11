@@ -1,5 +1,5 @@
 From Stdlib Require Import Arith.Wf_nat.
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Goals Substitution Environments Trees.
 From Stdlib Require Import List Lia Arith.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay DelayTracking Scheduling.
 Import ListNotations.

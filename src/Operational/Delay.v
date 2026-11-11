@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Environments Trees.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Goals Environments Trees.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.

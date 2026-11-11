@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith.Wf_nat.
 From MkRedex.Operational Require Import DelayTracking Scheduling WellFormed Reduction Delay DelayFairness.
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees Terms.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Goals Substitution Environments Trees Terms.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation Opening Valuations Derivations.
 From MkRedex.Execution Require Import Executable RunnerCorrespondence.
@@ -221,7 +221,7 @@ Proof.
     assert (Hmodel' : satisfies_sub sigma (st_sub s)).
     { eapply satisfies_sub_agrees; [exact (proj1 Hsub)|eassumption|exact Hmodel]. }
     assert (Hargs : runtime_open_args (st_cnt s+k) args).
-    { apply fresh_args_open_args. reflexivity. }
+    { apply fresh_args_ok. reflexivity. }
     assert (Heval : eval_terms sigma [] args = Some values).
     { unfold args. rewrite <- H. apply eval_fresh_block. }
     assert (Hopened : derives G sigma n0 [] (open args body)).

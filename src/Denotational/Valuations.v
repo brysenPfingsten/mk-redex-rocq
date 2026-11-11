@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import WellFormed Scoping Terms Goals Substitution Environments.
+From MkRedex.Language Require Import WellFormed WellFormedProperties Terms Goals Substitution Environments.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation Opening.
 Import ListNotations.
@@ -126,7 +126,7 @@ Proof.
   split; [exact Hagree|]. split.
   - eapply satisfies_sub_agrees; eassumption.
   - assert (Ha : runtime_open_args (c + k) (map tvar (seq c k))).
-    { apply fresh_args_open_args. reflexivity. }
+    { apply fresh_args_ok. reflexivity. }
     assert (He : eval_terms sigma [] (map tvar (seq c k)) = Some values).
     { rewrite <- Hlen. apply eval_fresh_block. }
     apply (proj2 (satisfies_open G sigma (c + k) (map tvar (seq c k)) values body Ha He)).

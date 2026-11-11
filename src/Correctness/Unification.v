@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Substitution Unification Trees.
+From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Goals Substitution Unification Trees.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Operational Require Import WellFormed Reduction.
@@ -143,7 +143,7 @@ Proof.
     inversion Heval; subst v. simpl. apply AS_cons; [eapply IHt1|eapply IHt2]; eassumption.
 Qed.
 
-Lemma lookup_closed_binding : forall c s x t,
+Lemma lookup_ok_binding : forall c s x t,
   scoped_sub c s -> lookup x s = Some t -> x < c /\ ok_term 0 c t.
 Proof.
   intros c s. induction s as [|[y u] s IH]; intros x t Hs Hlook; [discriminate|].
@@ -157,7 +157,7 @@ Lemma ground_sub_models : forall c rho s,
   scoped_sub c s -> satisfies_sub rho s -> models_sub (ground_sub c rho) s.
 Proof.
   intros c rho s Hclosed Hmodel x t Hlook r Happ.
-  destruct (lookup_closed_binding c s x t Hclosed Hlook) as [Hx Ht].
+  destruct (lookup_ok_binding c s x t Hclosed Hlook) as [Hx Ht].
   assert (Hxapp : ApplySub (ground_sub c rho) (tvar x) (quote (rho x))).
   { eapply ground_sub_apply; [exact Hx|reflexivity]. }
   pose proof (ApplySub_functional _ _ _ _ Happ Hxapp) as ->.
@@ -197,7 +197,7 @@ Lemma ground_sub_models_reflect : forall c rho s,
   scoped_sub c s -> models_sub (ground_sub c rho) s -> satisfies_sub rho s.
 Proof.
   intros c rho s Hclosed Hmodel x t Hlook.
-  destruct (lookup_closed_binding c s x t Hclosed Hlook) as [Hx Ht].
+  destruct (lookup_ok_binding c s x t Hclosed Hlook) as [Hx Ht].
   assert (Hxapp : ApplySub (ground_sub c rho) (tvar x) (quote (rho x))).
   { eapply ground_sub_apply; [exact Hx|reflexivity]. }
   pose proof (Hmodel x t Hlook _ Hxapp) as Happ.
@@ -218,7 +218,7 @@ Proof.
     Hacyc Hsub Ht Hu Hmodel Et Eu) as [s' Hresult].
   exists s'. split; [exact Hresult|].
   apply (ground_sub_models_reflect c rho s').
-  - exact (Unify_closed c t u s s' Ht Hu Hsub Hresult).
+  - exact (Unify_scoped c t u s s' Ht Hu Hsub Hresult).
   - apply more_general_models.
     + eapply Unify_acyclic; eassumption.
     + apply ground_sub_acyclic.
@@ -264,7 +264,7 @@ Lemma Unify_mgu : forall c s t u answer,
   Unify t u s (Some answer) -> most_general_extension c s t u answer.
 Proof.
   intros c s t u answer Hacyc Hsub Ht Hu Hresult. constructor.
-  - exact (Unify_closed c t u s answer Ht Hu Hsub Hresult).
+  - exact (Unify_scoped c t u s answer Ht Hu Hsub Hresult).
   - exact (Unify_acyclic t u s answer Hacyc Hresult).
   - eapply Unify_extends; [exact Hresult|reflexivity].
   - destruct Hresult as [w1 [w2 [_ [_ Hw]]]].
