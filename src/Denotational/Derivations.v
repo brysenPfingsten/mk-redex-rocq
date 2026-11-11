@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping Terms Goals Environments.
+From MkRedex.Language Require Import WellFormed Scoping Terms Goals Environments.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation Opening Valuations.
 Import ListNotations.
@@ -46,7 +46,7 @@ Proof. intros G rho n beta g H. induction H; econstructor; eassumption. Qed.
 
 Theorem derives_agrees : forall G rho n beta g,
   derives G rho n beta g -> forall sigma d c,
-  closed_env G -> closed_goal G d c g -> agrees_below c rho sigma ->
+  ok_env G -> ok_goal G d c g -> agrees_below c rho sigma ->
   derives G sigma n beta g.
 Proof.
   intros G rho n beta g Hsat. induction Hsat; intros sigma d c Henv Hclosed Hagree;
@@ -65,7 +65,7 @@ Proof.
     eapply D_call; [exact H|exact H0| |].
     + rewrite <- (eval_terms_agrees args d c rho sigma beta Hargs Hagree). exact H1.
     + eapply IHHsat; [exact Henv| |exact Hagree].
-      eapply closed_goal_mono; [apply Nat.le_refl|apply Nat.le_0_l|].
+      eapply ok_goal_mono; [apply Nat.le_refl|apply Nat.le_0_l|].
       exact (Henv r arity body H).
 Qed.
 

@@ -1,5 +1,5 @@
 From MkRedex.Execution Require Import Unifier.
-From MkRedex.Language Require Import Scoping ScopedUnification Terms Substitution Goals Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Substitution Goals Environments Trees.
 From Stdlib Require Import List Arith.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.
@@ -29,8 +29,8 @@ Proof.
   - exact None.
   - destruct g as [|t1 t2|rel ts|g1 g2|g1 g2|k g].
     + exact None.
-    + destruct Hok as [_ [Htight [_ Hacyclic]]].
-      simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
+    + destruct Hok as [Htree _].
+      simpl in Htree. destruct Htree as [[Ht1 Ht2] [Hsub Hacyclic]].
       destruct (unify_fn t1 t2 (st_sub s) (st_cnt s)
         Hacyclic Hsub Ht1 Ht2) as [sub'|].
       * exact (Some (tgoal gsucc (mkstate sub' (st_cnt s)))).
@@ -83,8 +83,8 @@ Proof.
   - destruct g as [|t1 t2|rel ts|g1 g2|g1 g2|k g];
       simpl in Hresult; try discriminate;
       try (inversion Hresult; subst; constructor).
-    destruct Hok as [_ [Htight [_ Hacyclic]]].
-    simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
+    destruct Hok as [Htree _].
+    simpl in Htree. destruct Htree as [[Ht1 Ht2] [Hsub Hacyclic]].
     destruct (unify_fn t1 t2 (st_sub s) (st_cnt s)
       Hacyclic Hsub Ht1 Ht2) as [sub'|] eqn:Huni;
       inversion Hresult; subst.
@@ -97,8 +97,8 @@ Proof.
   - destruct (nth_error G rel) as [[arity def]|] eqn:Hlookup;
       simpl in Hresult; try discriminate.
     inversion Hresult; subst. eapply H_proceed; [exact Hlookup |].
-    destruct Hok as [[c Hclosed] _]. simpl in Hclosed.
-    rewrite Hlookup in Hclosed. exact (proj1 (proj2 Hclosed)).
+    destruct Hok as [Htree _]. simpl in Htree.
+    rewrite Hlookup in Htree. exact (proj1 Htree).
   - repeat match type of Hresult with
       | context [match ?x with _ => _ end] => destruct x
       end;
@@ -121,12 +121,12 @@ Theorem head_fn_complete : forall G r Hok out,
 Proof.
   intros G r Hok out Hhead.
   destruct Hhead; simpl; try reflexivity.
-  - destruct Hok as [_ [Htight [_ Hacyclic]]].
-    simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
+  - destruct Hok as [Htree _].
+    simpl in Htree. destruct Htree as [[Ht1 Ht2] [Hsub Hacyclic]].
     simpl. rewrite (proj1 (unify_fn_spec (st_cnt s) (st_sub s)
       t1 t2 Hacyclic Hsub Ht1 Ht2 (Some s')) H). reflexivity.
-  - destruct Hok as [_ [Htight [_ Hacyclic]]].
-    simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
+  - destruct Hok as [Htree _].
+    simpl in Htree. destruct Htree as [[Ht1 Ht2] [Hsub Hacyclic]].
     simpl. rewrite (proj1 (unify_fn_spec (st_cnt s) (st_sub s)
       t1 t2 Hacyclic Hsub Ht1 Ht2 None) H). reflexivity.
   - now rewrite H.
@@ -143,12 +143,10 @@ Qed.
 Lemma ok_expr_plug_root : forall G ans E r,
   ok_expr G (ans, plug E r) -> ok_expr G ([], r).
 Proof.
-  intros G ans E r [[c Hclosed] [Htight [_ Hacyclic]]].
-  repeat split.
-  - exists c. eapply plug_closed_inv; eassumption.
-  - eapply plug_tight_inv; eassumption.
+  intros G ans E r [Htree _].
+  split.
+  - eapply plug_ok_tree_inv; eassumption.
   - constructor.
-  - eapply plug_acyclic_inv; eassumption.
 Qed.
 
 Lemma head_fn_absent_under_context : forall G E r r' Hok,
@@ -357,7 +355,7 @@ Qed.
 
 (** Bundle the output with preservation so the recursive runner can pattern
     match on an ordinary option.  The proof fields disappear on extraction. *)
-Definition next_step_checked (G : env) (Henv : closed_env G)
+Definition next_step_checked (G : env) (Henv : ok_env G)
   (e : expr) (Hok : ok_expr G e) :
   option {next : expr | G |= e --> next /\ ok_expr G next}.
 Proof.
@@ -371,7 +369,7 @@ Defined.
 
 (** Execute at most [fuel] steps.  Preservation supplies the proof needed
     by the next call; extraction removes these proof arguments. *)
-Fixpoint run_steps (G : env) (Henv : closed_env G)
+Fixpoint run_steps (G : env) (Henv : ok_env G)
   (fuel : nat) (e : expr) (Hok : ok_expr G e) {struct fuel} : expr.
 Proof.
   destruct fuel as [|fuel].

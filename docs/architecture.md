@@ -8,7 +8,7 @@ This division makes it possible to read the machine without first reading
 the completeness proof, or to inspect the source meaning without learning
 the scheduler representation.
 
-## Language and scoping
+## Language and well-formedness
 
 `Language/Terms.v` and `Goals.v` define the source syntax and parameter
 opening. `Substitution.v` defines substitutions, runtime states, relational
@@ -19,12 +19,18 @@ expressions, and ordered observations. These runtime data structures remain
 in the language layer because reduction, denotation bridges, and execution
 all use them without requiring the reduction rules themselves.
 
-`Language/Scoping.v` collects the counter and binder bounds. `closed_term d c`
-allows bound parameter indices below `d` and allocated variable IDs below
-`c`. `closed_goal` checks calls against the environment, and `closed_tree`
-checks tree structure against a global counter bound. The module also proves
-opening safety and the scoping of fresh argument blocks. It contains no
-small-step machine theorem and does not depend on the reduction rules.
+`Language/WellFormed.v` contains the entire validity contract: `ok_term`,
+`ok_sub`, `ok_goal`, `ok_env`, `ok_tree`, and `ok_expr`. The term judgment uses
+binder depth and the allocation counter; the goal judgment also checks relation
+lookup and arity. `ok_sub` requires both scoped bindings and acyclicity, for
+active states and accumulated answers. Trees check each state at its own
+counter and conjunction continuations at every counter their left subtree
+can produce. The module also defines the structural `state_in` relation,
+without importing the reduction rules.
+
+`Language/Scoping.v` proves opening safety, monotonicity in the counter, and
+fresh-argument bounds for those judgments. It contains no second tree
+validity check.
 
 `Language/Unification.v` is the relational specification and its general
 metatheory: functionality, extension, acyclicity, total walking/application,
@@ -45,10 +51,9 @@ part of the core syntax interface.
 `Operational/Reduction.v` defines `Head`, contextual `step`, and finite
 `multi` execution. It also proves monotonicity of answer observations.
 `Determinism.v` establishes unique decomposition and one-step determinism.
-`WellFormed.v` defines local-state constraints, substitution acyclicity for
-active work, and the public `ok_expr` invariant. Its main results are
-initialization, preservation, and progress. Scoping and unification totality
-are prerequisites imported from the language layer.
+`Operational/WellFormed.v` proves preservation and progress for the language
+layer's `ok_expr` invariant. Opening safety and unification totality are
+prerequisites imported from the language layer.
 
 The scheduling proof is divided according to the obligation being discharged:
 

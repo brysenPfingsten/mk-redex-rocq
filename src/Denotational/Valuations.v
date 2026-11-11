@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping Terms Goals Substitution Environments.
+From MkRedex.Language Require Import WellFormed Scoping Terms Goals Substitution Environments.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation Opening.
 Import ListNotations.
@@ -8,7 +8,7 @@ Definition agrees_below (c : nat) (rho sigma : valuation) : Prop :=
   forall x, x < c -> rho x = sigma x.
 
 Lemma eval_term_agrees : forall t d c rho sigma beta,
-  closed_term d c t -> agrees_below c rho sigma ->
+  ok_term d c t -> agrees_below c rho sigma ->
   eval_term rho beta t = eval_term sigma beta t.
 Proof.
   induction t; intros d c rho sigma beta Hclosed Hagree; simpl in *;
@@ -20,7 +20,7 @@ Proof.
 Qed.
 
 Lemma eval_terms_agrees : forall ts d c rho sigma beta,
-  Forall (closed_term d c) ts -> agrees_below c rho sigma ->
+  Forall (ok_term d c) ts -> agrees_below c rho sigma ->
   eval_terms rho beta ts = eval_terms sigma beta ts.
 Proof.
   intros ts d c rho sigma beta H. induction H; intro Hagree; simpl.
@@ -31,7 +31,7 @@ Qed.
 
 Theorem satisfies_agrees : forall G rho beta g,
   satisfies G rho beta g -> forall sigma d c,
-  closed_env G -> closed_goal G d c g -> agrees_below c rho sigma ->
+  ok_env G -> ok_goal G d c g -> agrees_below c rho sigma ->
   satisfies G sigma beta g.
 Proof.
   intros G rho beta g Hsat. induction Hsat; intros sigma d c Henv Hclosed Hagree;
@@ -50,16 +50,16 @@ Proof.
     eapply Sat_call; [exact H|exact H0| |].
     + rewrite <- (eval_terms_agrees args d c rho sigma beta Hargs Hagree). exact H1.
     + eapply IHHsat; [exact Henv| |exact Hagree].
-      eapply closed_goal_mono; [apply Nat.le_refl|apply Nat.le_0_l|].
+      eapply ok_goal_mono; [apply Nat.le_refl|apply Nat.le_0_l|].
       exact (Henv r arity body H).
 Qed.
 
 Lemma satisfies_sub_agrees : forall c rho sigma s,
-  closed_sub c s -> agrees_below c rho sigma -> satisfies_sub rho s ->
+  scoped_sub c s -> agrees_below c rho sigma -> satisfies_sub rho s ->
   satisfies_sub sigma s.
 Proof.
   intros c rho sigma s Hclosed Hagree Hmodel x t Hlook.
-  assert (Hb : x < c /\ closed_term 0 c t).
+  assert (Hb : x < c /\ ok_term 0 c t).
   { clear Hmodel. revert Hclosed Hlook. induction s as [|[y u] s IH]; intros Hclosed Hlook; [discriminate|].
     simpl in *. destruct Hclosed as [Hy [Hu Htail]].
     destruct (Nat.eqb_spec x y) as [->|Hneq].
@@ -114,7 +114,7 @@ Proof.
 Qed.
 
 Theorem fresh_witness_extension : forall G rho c s k body values,
-  closed_env G -> closed_sub c s -> closed_goal G k c body ->
+  ok_env G -> scoped_sub c s -> ok_goal G k c body ->
   satisfies_sub rho s -> List.length values = k ->
   satisfies G rho values body ->
   let sigma := extend_valuation rho c values in

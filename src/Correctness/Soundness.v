@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Substitution Environments Trees Unification.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Substitution Environments Trees Unification.
 From Stdlib Require Import List Arith.
 From MkRedex.Denotational Require Import Denotation Opening.
 From MkRedex.Correctness Require Import Unification.
@@ -34,17 +34,17 @@ Proof.
 Qed.
 
 Lemma Head_meaning_backward : forall G t t' rho,
-  closed_env G -> tight_tree G t -> acyclic_tree t ->
+  ok_env G -> ok_tree G t ->
   Head G t t' -> tree_meaning G rho t' -> tree_meaning G rho t.
 Proof.
-  intros G t t' rho Henv Htight Hacyc Hhead.
+  intros G t t' rho Henv Htree Hhead.
   destruct Hhead; simpl in *; intro Hmeaning;
     try tauto.
   - destruct Hmeaning as [Hmodel Hsucc]. split.
     + eapply Unify_ground_old_bindings; eassumption.
-    + destruct Htight as [[Ht Hu] Hsub].
+    + destruct Htree as [[Ht Hu] Hsub].
       destruct (Unify_ground_sound (st_cnt s) (st_sub s) t1 t2 s' rho
-        Hacyc Ht H Hmodel) as [v [Hv1 Hv2]].
+        (proj2 Hsub) Ht H Hmodel) as [v [Hv1 Hv2]].
       eapply Sat_unify; eassumption.
   - destruct Hmeaning as [[Hm Ha] | [Hm Hb]]; split; try exact Hm.
     + apply Sat_disj_left. exact Ha.
@@ -61,7 +61,7 @@ Proof.
     + rewrite app_nil_r. apply (proj1 (satisfies_open G rho (st_cnt s + k) args values g Ha He)).
       exact Hbody.
   - destruct Hmeaning as [Hmodel Hbody]. split; [exact Hmodel|].
-    pose proof (tight_tree_proceed_open_args G r ts s Htight) as Ha.
+    pose proof (ok_tree_proceed_open_args G r ts s Htree) as Ha.
     destruct (eval_terms_total rho (st_cnt s) ts Ha) as [values He].
     eapply Sat_call; [exact H|exact H0|exact He|].
     apply (proj1 (satisfies_open G rho (st_cnt s) ts values body Ha He)). exact Hbody.
@@ -78,7 +78,7 @@ Proof.
 Qed.
 
 Theorem step_meaning_backward : forall G e e' rho,
-  closed_env G -> ok_expr G e -> step G e e' ->
+  ok_env G -> ok_expr G e -> step G e e' ->
   expr_meaning G rho e' -> expr_meaning G rho e.
 Proof.
   intros G e e' rho Henv Hok Hstep Hmeaning.
@@ -86,8 +86,7 @@ Proof.
   - destruct Hmeaning as [Hans|Htree]; [left; exact Hans|right].
     apply (plug_meaning_monotone G rho E r r'); [|exact Htree].
     apply Head_meaning_backward; try assumption.
-    + apply (plug_tight_inv G E r). exact (proj1 (proj2 Hok)).
-    + apply (plug_acyclic_inv E r). exact (proj2 (proj2 (proj2 Hok))).
+    + apply (plug_ok_tree_inv G E r). exact (proj1 Hok).
   - exact Hmeaning.
   - destruct Hmeaning as [[a [Hin Hmodel]]|Htree].
     + apply in_app_or in Hin. destruct Hin as [Hin|Hin].
@@ -104,7 +103,7 @@ Proof.
 Qed.
 
 Theorem multi_meaning_backward : forall G e e' rho,
-  closed_env G -> ok_expr G e -> multi G e e' ->
+  ok_env G -> ok_expr G e -> multi G e e' ->
   expr_meaning G rho e' -> expr_meaning G rho e.
 Proof.
   intros G e e' rho Henv Hok Hrun. revert Hok.
@@ -130,7 +129,7 @@ Qed.
 (** Main search soundness: every observed answer from a finite reduction
     represents only source solutions, projected onto the original query. *)
 Theorem search_soundness : forall G query g s e answer rho,
-  closed_env G -> ok_expr G ([], tgoal g s) ->
+  ok_env G -> ok_expr G ([], tgoal g s) ->
   multi G ([], tgoal g s) e ->
   In answer (observed_answers e) -> represents query answer rho ->
   solution G query g rho.

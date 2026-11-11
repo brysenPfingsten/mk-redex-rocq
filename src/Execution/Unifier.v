@@ -1,5 +1,5 @@
 From Stdlib Require Import List Arith Lia Logic.ProofIrrelevance Logic.ConstructiveEpsilon.
-From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification Scoping ScopedUnification.
+From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification WellFormed Scoping ScopedUnification.
 Import ListNotations.
 Set Default Goal Selector "!".
 
@@ -149,8 +149,8 @@ Qed.
 (** Search increasing fuel values.  [UnifyW_total] and
     [UnifyW_fuel_eventual] ensure this search terminates on valid inputs. *)
 Definition UnifyW_fn : forall c s w1 w2,
-  acyclic_sub s -> closed_sub c s ->
-  closed_term 0 c w1 -> closed_term 0 c w2 ->
+  acyclic_sub s -> scoped_sub c s ->
+  ok_term 0 c w1 -> ok_term 0 c w2 ->
   Walk s w1 w1 -> Walk s w2 w2 ->
   {r : option sub | UnifyW w1 w2 s r}.
 Proof.
@@ -181,8 +181,8 @@ Proof.
 Defined.
 
 Definition unify_fn_cert : forall c s t1 t2,
-  acyclic_sub s -> closed_sub c s ->
-  closed_term 0 c t1 -> closed_term 0 c t2 ->
+  acyclic_sub s -> scoped_sub c s ->
+  ok_term 0 c t1 -> ok_term 0 c t2 ->
   {r : option sub | Unify t1 t2 s r}.
 Proof.
   intros c s t1 t2 Hacyclic Hsub Ht1 Ht2.
@@ -192,9 +192,9 @@ Proof.
     (apply (proj2 (walk_valid_spec s Hacyclic t1 w1)); reflexivity).
   assert (Hw2 : Walk s t2 w2) by
     (apply (proj2 (walk_valid_spec s Hacyclic t2 w2)); reflexivity).
-  assert (Hcw1 : closed_term 0 c w1) by
+  assert (Hcw1 : ok_term 0 c w1) by
     exact (Walk_closed c t1 w1 s Ht1 Hsub Hw1).
-  assert (Hcw2 : closed_term 0 c w2) by
+  assert (Hcw2 : ok_term 0 c w2) by
     exact (Walk_closed c t2 w2 s Ht2 Hsub Hw2).
   destruct (UnifyW_fn c s w1 w2 Hacyclic Hsub Hcw1 Hcw2
     (Walk_idempotent s t1 w1 Hw1)
@@ -203,8 +203,8 @@ Proof.
 Defined.
 
 Definition unify_fn (t1 t2 : term) (s : sub) (c : nat)
-  (Hacyclic : acyclic_sub s) (Hsub : closed_sub c s)
-  (Ht1 : closed_term 0 c t1) (Ht2 : closed_term 0 c t2)
+  (Hacyclic : acyclic_sub s) (Hsub : scoped_sub c s)
+  (Ht1 : ok_term 0 c t1) (Ht2 : ok_term 0 c t2)
   : option sub :=
   proj1_sig (unify_fn_cert c s t1 t2 Hacyclic Hsub Ht1 Ht2).
 

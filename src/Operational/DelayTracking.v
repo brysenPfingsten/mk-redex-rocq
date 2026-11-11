@@ -1,5 +1,5 @@
 From Stdlib Require Import Arith.Wf_nat.
-From MkRedex.Language Require Import Scoping ScopedUnification Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees.
 From Stdlib Require Import List Lia Arith.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay.
 Import ListNotations.
@@ -505,7 +505,7 @@ Proof.
 Qed.
 
 Lemma carried_multi_ok : forall G m m',
-  closed_env G -> ok_expr G (erase_marked m) ->
+  ok_env G -> ok_expr G (erase_marked m) ->
   carried_multi G m m' -> ok_expr G (erase_marked m').
 Proof.
   intros G m m' Henv Hok Hrun.

@@ -35,7 +35,7 @@ Fixpoint term_eqb (t1 t2 : term) : bool :=
   end.
 Notation "x =? y" := (term_eqb x y).
 
-Theorem eqb_refl : forall t,
+Theorem term_eqb_refl : forall t,
   t =? t = true.
 Proof.
   induction t; simpl; 
@@ -46,7 +46,7 @@ Proof.
   - rewrite IHt1, IHt2. reflexivity.
 Qed.
 
-(** * open_term *)
+(** https://www.chargueraud.org/research/2009/ln/main.pdf *)
 Fixpoint open_term (d : nat) (args : list term) (t : term) : term :=
   match t with
   | tpar i =>

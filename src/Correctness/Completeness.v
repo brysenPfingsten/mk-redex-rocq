@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith.Wf_nat.
 From MkRedex.Operational Require Import DelayTracking Scheduling WellFormed Reduction Delay DelayFairness.
-From MkRedex.Language Require Import Scoping ScopedUnification Goals Substitution Environments Trees Terms.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees Terms.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation Opening Valuations Derivations.
 From MkRedex.Execution Require Import Executable RunnerCorrespondence.
@@ -12,15 +12,13 @@ Definition initial_expr (counter : nat) (g : goal) : expr :=
   ([], tgoal g (mkstate [] counter)).
 
 Lemma initial_expr_ok : forall G counter g,
-  closed_goal G 0 counter g -> ok_expr G (initial_expr counter g).
+  ok_goal G 0 counter g -> ok_expr G (initial_expr counter g).
 Proof.
   intros G counter g Hgoal. unfold initial_expr, ok_expr. simpl.
   split.
-  - exists counter. split; [apply Nat.le_refl|]. split; [exact Hgoal|exact I].
-  - split.
-    + split; [exact Hgoal|exact I].
-    + split; [constructor|].
-      intros x. constructor. intros y [t [Hlookup _]]. discriminate.
+  - split; [exact Hgoal|]. split; [exact I|].
+    intros x. constructor. intros y [t [Hlookup _]]. discriminate.
+  - constructor.
 
 Qed.
 
@@ -33,7 +31,7 @@ Definition reduction_complete (G : env) (counter : nat) (query : list nat)
     multi G (initial_expr counter g) e /\
     In answer (observed_answers e) /\ represents query answer rho.
 
-Definition runner_complete (G : env) (Henv : closed_env G)
+Definition runner_complete (G : env) (Henv : ok_env G)
   (counter : nat) (query : list nat) (g : goal)
   (Hok : ok_expr G (initial_expr counter g)) : Prop :=
   forall rho, solution G query g rho ->
@@ -56,7 +54,7 @@ Qed.
     Proved in [Completeness.v], without adding axioms. *)
 Definition source_search_complete : Prop :=
   forall G counter query g,
-    closed_env G -> closed_goal G 0 counter g ->
+    ok_env G -> ok_goal G 0 counter g ->
     Forall (fun x => x < counter) query ->
     reduction_complete G counter query g.
 
@@ -69,7 +67,7 @@ Inductive pending (G : env) (rho : valuation) : nat -> list goal -> Prop :=
 
 Lemma pending_agrees : forall G rho n gs,
   pending G rho n gs -> forall sigma c,
-  closed_env G -> Forall (closed_goal G 0 c) gs -> agrees_below c rho sigma ->
+  ok_env G -> Forall (ok_goal G 0 c) gs -> agrees_below c rho sigma ->
   pending G sigma n gs.
 Proof.
   intros G rho n gs H. induction H; intros sigma c Henv Hclosed Hagree.
@@ -84,19 +82,19 @@ Lemma state_in_fill : forall m work s,
 Proof. induction m; intros work s H; simpl; eauto using state_in. Qed.
 
 Lemma pending_goals_closed : forall G m work s,
-  tight_tree G (fill_mark m work) -> state_in work s ->
-  Forall (closed_goal G 0 (st_cnt s)) (marked_goals m).
+  ok_tree G (fill_mark m work) -> state_in work s ->
+  Forall (ok_goal G 0 (st_cnt s)) (marked_goals m).
 Proof.
-  intros G m. induction m; intros work s Htight Hstate; simpl in *.
+  intros G m. induction m; intros work s Htree Hstate; simpl in *.
   - constructor.
   - eapply IHm; eassumption.
-  - destruct Htight as [Ht Hcont]. apply Forall_app. split.
+  - destruct Htree as [Ht [_ Hcont]]. apply Forall_app. split.
     + eapply IHm; eassumption.
     + constructor; [apply Hcont; apply state_in_fill; exact Hstate|constructor].
-  - eapply IHm; [exact (proj1 Htight)|exact Hstate].
-  - eapply IHm; [exact (proj2 Htight)|exact Hstate].
-  - eapply IHm; [exact (proj1 Htight)|exact Hstate].
-  - eapply IHm; [exact (proj2 Htight)|exact Hstate].
+  - eapply IHm; [exact (proj1 Htree)|exact Hstate].
+  - eapply IHm; [exact (proj2 Htree)|exact Hstate].
+  - eapply IHm; [exact (proj1 Htree)|exact Hstate].
+  - eapply IHm; [exact (proj2 Htree)|exact Hstate].
 Qed.
 
 Definition finds (G : env) (rho : valuation) (c : nat) (start : expr) : Prop :=
@@ -137,7 +135,7 @@ Qed.
     prefixes need not have a uniform runtime bound. See docs/proofs.md. *)
 Theorem pending_finds_answer : forall budget,
   forall G rho ans m g s,
-  closed_env G -> ok_expr G (ans,fill_mark m (tgoal g s)) ->
+  ok_env G -> ok_expr G (ans,fill_mark m (tgoal g s)) ->
   satisfies_sub rho (st_sub s) ->
   pending G rho budget (g::marked_goals m) ->
   finds G rho (st_cnt s) (ans,fill_mark m (tgoal g s)).
@@ -150,15 +148,14 @@ Proof.
   { eapply multi_ok; eassumption. }
   rewrite Hgoals in Hp.
   destruct (active_fill_context target Hactive) as [E [He HEgoals]].
-  assert (Htight : tight_tree G (fill_mark target (tgoal g s)))
-    by exact (proj1 (proj2 Hokfocus)).
-  assert (Hlocal : tight_tree G (tgoal g s)).
-  { apply (plug_tight_inv G E). rewrite <- He. exact Htight. }
+  assert (Htree : ok_tree G (fill_mark target (tgoal g s)))
+    by exact (proj1 Hokfocus).
+  assert (Hlocal : ok_tree G (tgoal g s)).
+  { apply (plug_ok_tree_inv G E). rewrite <- He. exact Htree. }
   assert (Hacyclic : acyclic_sub (st_sub s)).
-  { apply (plug_acyclic_inv E (tgoal g s)). rewrite <- He.
-    exact (proj2 (proj2 (proj2 Hokfocus))). }
-  assert (Hcontinuations : Forall (closed_goal G 0 (st_cnt s)) (marked_goals target)).
-  { eapply pending_goals_closed; [exact Htight|constructor]. }
+  { exact (proj2 (proj2 Hlocal)). }
+  assert (Hcontinuations : Forall (ok_goal G 0 (st_cnt s)) (marked_goals target)).
+  { eapply pending_goals_closed; [exact Htree|constructor]. }
   inversion Hp as [|n rest current gs Hd Htail Hcost Hshape]; subst current gs budget.
   inversion Hd; subst g n.
   - destruct (success_context G E s) as [u [Hrun [[Hnone Hready]|[h [gs [next [Hstack [Hu Hnext]]]]]]]].
@@ -176,7 +173,7 @@ Proof.
       * rewrite Hnext. rewrite <- HEgoals, Hstack in Htail. exact Htail.
   - destruct Hlocal as [[Ht Hu] Hsub].
     destruct (ground_unification_complete (st_cnt s) rho (st_sub s) t u v
-      Hacyclic Hsub Ht Hu Hmodel H H0) as [s' [Hunify Hmodel']].
+      Hacyclic (proj1 Hsub) Ht Hu Hmodel H H0) as [s' [Hunify Hmodel']].
     set (state' := mkstate s' (st_cnt s)).
     assert (Hstep : step G (out,fill_mark target (tgoal (gunify t u) s))
       (out,fill_mark target (tgoal gsucc state'))).
@@ -222,7 +219,7 @@ Proof.
     pose proof (extend_valuation_old rho (st_cnt s) values) as Hagree.
     destruct Hlocal as [Hbody Hsub]. simpl in Hbody.
     assert (Hmodel' : satisfies_sub sigma (st_sub s)).
-    { eapply satisfies_sub_agrees; eassumption. }
+    { eapply satisfies_sub_agrees; [exact (proj1 Hsub)|eassumption|exact Hmodel]. }
     assert (Hargs : runtime_open_args (st_cnt s+k) args).
     { apply fresh_args_open_args. reflexivity. }
     assert (Heval : eval_terms sigma [] args = Some values).
@@ -254,7 +251,7 @@ Proof.
       (called,fill_mark selected (tgoal (open args body) s))).
     { rewrite !HK. apply S_ctx. eapply H_proceed; eassumption. }
     assert (Hargs : runtime_open_args (st_cnt s) args).
-    { apply (closed_goal_relcall_open_args G (st_cnt s) r args). exact (proj1 Hlocal). }
+    { apply (ok_goal_relcall_open_args G (st_cnt s) r args). exact (proj1 Hlocal). }
     assert (Hopened : derives G rho n0 [] (open args body)).
     { eapply derives_open; eassumption. }
     apply (finds_prefix G rho (st_cnt s) _ _ (multi_step G _ _ _ Hcall (multi_refl G _))).
@@ -286,7 +283,7 @@ Proof.
 Qed.
 
 Corollary executable_search_completeness : forall G Henv counter query g
-  (Hclosed : closed_goal G 0 counter g)
+  (Hclosed : ok_goal G 0 counter g)
   (Hquery : Forall (fun x => x < counter) query),
   runner_complete G Henv counter query g (initial_expr_ok G counter g Hclosed).
 Proof.
@@ -298,7 +295,7 @@ Qed.
 (** The executable finds exactly the ground source solutions, with answers
     compared only on the original, already allocated query variables. *)
 Theorem source_solution_iff_runner_answer : forall G Henv counter query g
-  (Hclosed : closed_goal G 0 counter g)
+  (Hclosed : ok_goal G 0 counter g)
   (Hquery : Forall (fun x => x < counter) query) rho,
   solution G query g rho <->
   exists fuel answer,

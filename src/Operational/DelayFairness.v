@@ -1,5 +1,5 @@
 From Stdlib Require Import Arith.Wf_nat.
-From MkRedex.Language Require Import Scoping ScopedUnification Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees.
 From Stdlib Require Import List Lia Arith.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay DelayTracking Scheduling.
 Import ListNotations.
@@ -7,7 +7,7 @@ Set Default Goal Selector "!".
 
 
 Lemma contextual_conjunction_answer_shell_left : forall G ans E s m g,
-  closed_env G -> disj_only_ctx E ->
+  ok_env G -> disj_only_ctx E ->
   ok_expr G (erase_marked (ans, plug_active_mark E
     (mark_under_conj (mark_disjL_right (tgoal gsucc s) m) g))) ->
   exists target,
@@ -52,7 +52,7 @@ Proof.
 Qed.
 
 Lemma contextual_conjunction_answer_shell_right : forall G ans E s m g,
-  closed_env G -> disj_only_ctx E ->
+  ok_env G -> disj_only_ctx E ->
   ok_expr G (erase_marked (ans, plug_active_mark E
     (mark_under_conj (mark_disjR_left m (tgoal gsucc s)) g))) ->
   exists target,
@@ -99,12 +99,10 @@ Qed.
 Lemma ok_expr_plug_inv : forall G ans E t,
   ok_expr G (ans, plug E t) -> ok_expr G (ans, t).
 Proof.
-  intros G ans E t [[c Hclosed] [Htight [Hans Hacyclic]]].
-  repeat split.
-  - exists c. eapply plug_closed_inv; eassumption.
-  - eapply plug_tight_inv; eassumption.
+  intros G ans E t [Htree Hans].
+  split.
+  - eapply plug_ok_tree_inv; eassumption.
   - exact Hans.
-  - eapply plug_acyclic_inv; eassumption.
 Qed.
 
 Lemma active_mark_plug_active : forall E m,
@@ -199,7 +197,7 @@ Qed.
 
 Lemma contextual_conjunction_carry_shell : forall G ans m ans' m' g E global_ans,
   marked_carry G (ans, m) (ans', m') ->
-  closed_env G -> disj_only_ctx E ->
+  ok_env G -> disj_only_ctx E ->
   ok_expr G (erase_marked
     (global_ans, plug_active_mark E (mark_under_conj m g))) ->
   exists target,
@@ -251,7 +249,7 @@ Qed.
 Theorem contextual_conjunction_trace_lift : forall G local_start local_end g,
   carried_multi G local_start local_end ->
   forall ans E,
-    closed_env G -> disj_only_ctx E ->
+    ok_env G -> disj_only_ctx E ->
     ok_expr G (erase_marked (ans, plug_active_mark E
       (mark_under_conj (snd local_start) g))) ->
     exists out K,
@@ -287,7 +285,7 @@ Proof.
 Qed.
 
 Corollary conjunction_preserves_eventual_active : forall G ans m g,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (erase_marked (ans, mark_under_conj m g)) ->
   (exists local_ans local_target,
     carried_multi G (local_ans, m) local_target /\
@@ -346,7 +344,7 @@ Qed.
 Theorem contextual_disj_trace_lift : forall G local_start local_end,
   carried_multi G local_start local_end ->
   forall ans E,
-    closed_env G -> disj_only_ctx E ->
+    ok_env G -> disj_only_ctx E ->
     ok_expr G (erase_marked
       (ans, plug_active_mark E (snd local_start))) ->
     exists out K,
@@ -380,7 +378,7 @@ Proof.
 Qed.
 
 Corollary disj_shell_preserves_eventual_active : forall G ans inner shell,
-  closed_env G -> ok_expr G (erase_marked (ans, shell)) ->
+  ok_env G -> ok_expr G (erase_marked (ans, shell)) ->
   disj_shell inner shell ->
   (exists local_ans local_target,
     carried_multi G (local_ans, inner) local_target /\
@@ -408,7 +406,7 @@ Qed.
 (** Global no-stranding. *)
 
 Theorem eventually_active : forall G marked,
-  closed_env G -> ok_expr G (erase_marked marked) ->
+  ok_env G -> ok_expr G (erase_marked marked) ->
   exists target,
     carried_multi G marked target /\ active_mark (snd target).
 Proof.
@@ -472,7 +470,7 @@ Qed.
     movement and release. Erasure projects the entire witness to ordinary
     reduction. No additional fairness premise is assumed. *)
 Theorem global_no_stranding : forall G marked,
-  closed_env G -> ok_expr G (erase_marked marked) ->
+  ok_env G -> ok_expr G (erase_marked marked) ->
   exists out, tracked_finish G marked out.
 Proof.
   intros G marked Henv Hok.

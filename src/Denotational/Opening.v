@@ -1,11 +1,11 @@
-From MkRedex.Language Require Import Scoping Terms Goals.
+From MkRedex.Language Require Import WellFormed Scoping Terms Goals.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 Import ListNotations.
 Set Default Goal Selector "!".
 
 Lemma eval_term_no_parameters : forall t c rho beta,
-  closed_term 0 c t -> eval_term rho beta t = eval_term rho [] t.
+  ok_term 0 c t -> eval_term rho beta t = eval_term rho [] t.
 Proof.
   induction t; intros c rho beta H; simpl in *; try reflexivity; try lia.
   destruct H as [Ha Hb]. rewrite (IHt1 c rho beta Ha), (IHt2 c rho beta Hb).
@@ -38,7 +38,7 @@ Proof.
     + simpl. rewrite !nth_error_app1 by exact Hlt. reflexivity.
     + rewrite nth_error_app2 by lia.
       destruct (nth_error args (n - List.length prefix)) as [u|] eqn:E.
-      * assert (Huc : closed_term 0 c u).
+      * assert (Huc : ok_term 0 c u).
         { eapply Forall_forall; [exact Hargs|]. eapply nth_error_In. exact E. }
         rewrite (eval_term_no_parameters u c rho (prefix ++ beta) Huc).
         rewrite nth_error_app1.

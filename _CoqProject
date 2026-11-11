@@ -6,6 +6,7 @@ src/Language/Substitution.v
 src/Language/Unification.v
 src/Language/Environments.v
 src/Language/Trees.v
+src/Language/WellFormed.v
 src/Language/Scoping.v
 src/Language/ScopedUnification.v
 src/Operational/Reduction.v

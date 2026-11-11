@@ -1,5 +1,5 @@
 From MkRedex.Operational Require Import DelayTracking Scheduling Reduction WellFormed Delay DelayFairness.
-From MkRedex.Language Require Import Scoping ScopedUnification Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees.
 From Stdlib Require Import List Lia.
 Import ListNotations.
 Set Default Goal Selector "!".
@@ -135,7 +135,7 @@ Proof.
 Qed.
 
 Theorem arbitrary_work_eventually_active : forall G ans m work,
-  closed_env G -> ok_expr G (erase_marked (ans,m)) ->
+  ok_env G -> ok_expr G (erase_marked (ans,m)) ->
   exists out target,
     multi G (ans,fill_mark m work) (out,fill_mark target work) /\
     active_mark target /\ marked_goals m = marked_goals target.
@@ -175,32 +175,25 @@ Proof.
     |apply SI_tdisjR_r; eapply IHm; eassumption].
 Qed.
 
-Lemma fill_delay_closed : forall m work G c,
-  closed_tree G c (fill_mark m (tdelay work)) <-> closed_tree G c (fill_mark m work).
-Proof. induction m; intros work G c; simpl; try tauto; specialize (IHm work G c); tauto. Qed.
-Lemma fill_delay_acyclic : forall m work,
-  acyclic_tree (fill_mark m (tdelay work)) <-> acyclic_tree (fill_mark m work).
-Proof. induction m; intros work; simpl; try tauto; specialize (IHm work); tauto. Qed.
-Lemma fill_delay_tight : forall m work G,
-  tight_tree G (fill_mark m (tdelay work)) <-> tight_tree G (fill_mark m work).
+Lemma fill_delay_ok_tree : forall m work G,
+  ok_tree G (fill_mark m (tdelay work)) <-> ok_tree G (fill_mark m work).
 Proof.
   induction m; intros work G; simpl; try tauto;
     try (specialize (IHm work G); tauto).
-  rewrite IHm. split; intros [Ht Hcont]; split; [exact Ht| |exact Ht|].
+  rewrite IHm. split; intros [Ht [Hex Hcont]]; repeat split; try assumption.
   - intros s Hs. apply Hcont. apply (proj2 (fill_delay_states m work s)). exact Hs.
   - intros s Hs. apply Hcont. apply (proj1 (fill_delay_states m work s)). exact Hs.
 Qed.
 Lemma fill_delay_ok : forall G ans m work,
   ok_expr G (ans,fill_mark m work) -> ok_expr G (ans,fill_mark m (tdelay work)).
 Proof.
-  intros G ans m work [[c Hclosed] [Ht [Ha Hacyc]]].
-  split; [exists c; apply fill_delay_closed; exact Hclosed|].
-  split; [apply fill_delay_tight; exact Ht|].
-  split; [exact Ha|apply fill_delay_acyclic; exact Hacyc].
+  intros G ans m work [Ht Ha].
+  split; [apply fill_delay_ok_tree; exact Ht|].
+  exact Ha.
 Qed.
 
 Theorem focus_work : forall G ans m work,
-  closed_env G -> ok_expr G (ans,fill_mark m work) ->
+  ok_env G -> ok_expr G (ans,fill_mark m work) ->
   exists out target,
     multi G (ans,fill_mark m work) (out,fill_mark target work) /\
     active_mark target /\ marked_goals m = marked_goals target.

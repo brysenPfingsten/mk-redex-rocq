@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Substitution Unification Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Substitution Unification Environments Trees.
 From Stdlib Require Import List Arith Lia Logic.ProofIrrelevance.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Execution Require Import Input Executable RunnerCorrespondence.
@@ -21,7 +21,7 @@ Record execution := {
 
 (** The optional trace contains the initial expression and every successor.
     At zero fuel we inspect terminal syntax, without taking another step. *)
-Fixpoint execute (G : env) (Henv : closed_env G) (capture : bool)
+Fixpoint execute (G : env) (Henv : ok_env G) (capture : bool)
   (fuel : nat) (e : expr) (Hok : ok_expr G e) {struct fuel} : execution.
 Proof.
   destruct fuel as [|fuel].
@@ -71,26 +71,16 @@ Proof.
     + exists []. split; [reflexivity|]. split; [constructor|reflexivity].
 Qed.
 
-Lemma step_answer_acyclic : forall G e e',
-  step G e e' -> acyclic_tree (snd e) ->
-  Forall (fun s => acyclic_sub (st_sub s)) (fst e) ->
-  Forall (fun s => acyclic_sub (st_sub s)) (fst e').
+Lemma observed_answers_acyclic : forall G e,
+  ok_expr G e ->
+  Forall (fun s => acyclic_sub (st_sub s)) (observed_answers e).
 Proof.
-  intros G e e' Hstep Htree Hans. destruct Hstep; simpl in *; try exact Hans.
-  - apply Forall_app. split; [exact Hans|]. constructor; [exact (proj1 Htree)|constructor].
-  - apply Forall_app. split; [exact Hans|]. constructor; [exact (proj2 Htree)|constructor].
-Qed.
-Lemma multi_answer_acyclic : forall G e e',
-  multi G e e' -> closed_env G -> ok_expr G e ->
-  Forall (fun s => acyclic_sub (st_sub s)) (fst e) ->
-  Forall (fun s => acyclic_sub (st_sub s)) (observed_answers e').
-Proof.
-  intros G e e' Hrun. induction Hrun; intros Henv Hok Hans.
-  - unfold observed_answers. apply Forall_app. split; [exact Hans|].
-    destruct e as [ans t]. destruct t; simpl; try solve [constructor].
-    destruct g; simpl; try solve [constructor]. constructor; [exact (proj2 (proj2 (proj2 Hok)))|constructor].
-  - apply IHHrun; [exact Henv|eapply step_ok; eassumption|].
-    eapply step_answer_acyclic; [exact H|exact (proj2 (proj2 (proj2 Hok)))|exact Hans].
+  intros G [ans t] [Htree Hans]. unfold observed_answers. simpl.
+  apply Forall_app. split.
+  - eapply Forall_impl; [|exact Hans]. intros s Hs. exact (proj2 Hs).
+  - destruct t; simpl; try solve [constructor].
+    destruct g; simpl; try solve [constructor].
+    constructor; [exact (proj2 (proj2 Htree))|constructor].
 Qed.
 
 Definition project_answer (query : list nat) (s : state)
@@ -121,11 +111,8 @@ Proof.
     pose (result := execute G Henv capture fuel (initial_expr counter g) Hok).
     assert (Hanswers : Forall (fun s => acyclic_sub (st_sub s))
       (observed_answers (execution_final result))).
-    { unfold result. rewrite execute_final. eapply multi_answer_acyclic.
-      - apply run_steps_multi.
-      - exact Henv.
-      - exact Hok.
-      - constructor. }
+    { unfold result. rewrite execute_final. eapply observed_answers_acyclic.
+      eapply multi_ok; [apply run_steps_multi|exact Henv|exact Hok]. }
     exact {| report_completion := if terminalb (execution_final result) then Complete else FuelExhausted;
       report_steps := execution_steps result;
       report_answers := project_answers query (observed_answers (execution_final result)) Hanswers;

@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Environments Trees.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.
@@ -328,7 +328,7 @@ Qed.
     ordinary work.  A recursive relation call introduces another delay
     before its body is unfolded again. *)
 Theorem finite_burst_marked : forall G e,
-  closed_env G -> ok_expr G e ->
+  ok_env G -> ok_expr G e ->
   exists e', burst_steps G e e' /\ burst_end e'.
 Proof.
   intros G e Henv Hok.
@@ -362,7 +362,7 @@ Proof.
 Qed.
 
 Corollary finite_burst : forall G e,
-  closed_env G -> ok_expr G e ->
+  ok_env G -> ok_expr G e ->
   exists e', multi G e e' /\ burst_end e'.
 Proof.
   intros G e Henv Hok.
@@ -462,7 +462,7 @@ Qed.
     must eventually yield or terminate.  The waiting sibling then becomes
     the selected branch. *)
 Theorem waiting_branch_selected_left : forall G ans active waiting,
-  closed_env G -> ok_expr G (ans, active) ->
+  ok_env G -> ok_expr G (ans, active) ->
   exists ans' E,
     multi G (ans, tdisjL active waiting) (ans', plug E waiting).
 Proof.
@@ -488,7 +488,7 @@ Proof.
 Qed.
 
 Theorem waiting_branch_selected_right : forall G ans active waiting,
-  closed_env G -> ok_expr G (ans, active) ->
+  ok_env G -> ok_expr G (ans, active) ->
   exists ans' E,
     multi G (ans, tdisjR waiting active) (ans', plug E waiting).
 Proof.
@@ -516,32 +516,28 @@ Qed.
 Lemma ok_expr_disjL_left : forall G ans active waiting,
   ok_expr G (ans, tdisjL active waiting) -> ok_expr G (ans, active).
 Proof.
-  intros G ans active waiting [[c Hclosed] [Htight [Hans Hacyclic]]].
-  simpl in Hclosed, Htight, Hacyclic.
-  repeat split.
-  - exists c. exact (proj1 Hclosed).
-  - exact (proj1 Htight).
+  intros G ans active waiting [Htree Hans].
+  simpl in Htree.
+  split.
+  - exact (proj1 Htree).
   - exact Hans.
-  - exact (proj1 Hacyclic).
 Qed.
 
 Lemma ok_expr_disjR_right : forall G ans waiting active,
   ok_expr G (ans, tdisjR waiting active) -> ok_expr G (ans, active).
 Proof.
-  intros G ans waiting active [[c Hclosed] [Htight [Hans Hacyclic]]].
-  simpl in Hclosed, Htight, Hacyclic.
-  repeat split.
-  - exists c. exact (proj2 Hclosed).
-  - exact (proj2 Htight).
+  intros G ans waiting active [Htree Hans].
+  simpl in Htree.
+  split.
+  - exact (proj2 Htree).
   - exact Hans.
-  - exact (proj2 Hacyclic).
 Qed.
 
 (** A delay waiting as the other immediate disjunct is eventually
     released, regardless of how many finite steps the selected branch
     needs before its next yield. *)
 Theorem waiting_delay_released_left : forall G ans active E t,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjL active (plug E (tdelay t))) ->
   exists ans' F,
     multi G (ans, tdisjL active (plug E (tdelay t)))
@@ -560,7 +556,7 @@ Proof.
 Qed.
 
 Theorem waiting_delay_released_right : forall G ans active E t,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjR (plug E (tdelay t)) active) ->
   exists ans' F,
     multi G (ans, tdisjR (plug E (tdelay t)) active)

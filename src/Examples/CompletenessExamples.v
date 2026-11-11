@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Substitution Environments Trees.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Operational Require Import WellFormed.
@@ -18,13 +18,13 @@ Definition sevens_env : env := [(1,sevens_body)].
 Definition sevens_query : goal := grelcall 0 [tvar 0].
 Definition seven_valuation : valuation := fun _ => gnat 7.
 
-Lemma sevens_env_closed : closed_env sevens_env.
+Lemma sevens_env_closed : ok_env sevens_env.
 Proof.
   intros r n body Hlook. destruct r as [|r]; simpl in Hlook.
   - inversion Hlook; subst. unfold sevens_body. simpl. repeat split; try lia. constructor; [simpl; lia|constructor].
   - destruct r; discriminate.
 Qed.
-Lemma sevens_query_closed : closed_goal sevens_env 0 1 sevens_query.
+Lemma sevens_query_closed : ok_goal sevens_env 0 1 sevens_query.
 Proof. simpl. repeat split; try lia. constructor; [simpl; lia|constructor]. Qed.
 Lemma sevens_query_solution : solution sevens_env [0] sevens_query seven_valuation.
 Proof.

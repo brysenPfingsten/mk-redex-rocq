@@ -1,5 +1,5 @@
 From Stdlib Require Import Arith.Wf_nat.
-From MkRedex.Language Require Import Scoping ScopedUnification Goals Substitution Environments Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Goals Substitution Environments Trees.
 From Stdlib Require Import List Lia Arith.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay DelayTracking.
 Import ListNotations.
@@ -502,7 +502,7 @@ Proof.
 Qed.
 
 Theorem contextual_disj_handoff_left : forall G ans E active m,
-  closed_env G -> ok_expr G (ans, active) -> disj_only_ctx E ->
+  ok_env G -> ok_expr G (ans, active) -> disj_only_ctx E ->
   exists target,
     carried_multi G
       (ans, plug_active_mark E (mark_disjL_right active m)) target /\
@@ -533,7 +533,7 @@ Proof.
 Qed.
 
 Theorem contextual_disj_handoff_right : forall G ans E active m,
-  closed_env G -> ok_expr G (ans, active) -> disj_only_ctx E ->
+  ok_env G -> ok_expr G (ans, active) -> disj_only_ctx E ->
   exists target,
     carried_multi G
       (ans, plug_active_mark E (mark_disjR_left m active)) target /\
@@ -636,25 +636,21 @@ Qed.
 Lemma ok_expr_disjL_right : forall G ans active waiting,
   ok_expr G (ans, tdisjL active waiting) -> ok_expr G (ans, waiting).
 Proof.
-  intros G ans active waiting [[c Hclosed] [Htight [Hans Hacyclic]]].
-  simpl in Hclosed, Htight, Hacyclic.
-  repeat split.
-  - exists c. exact (proj2 Hclosed).
-  - exact (proj2 Htight).
+  intros G ans active waiting [Htree Hans].
+  simpl in Htree.
+  split.
+  - exact (proj2 Htree).
   - exact Hans.
-  - exact (proj2 Hacyclic).
 Qed.
 
 Lemma ok_expr_disjR_left : forall G ans waiting active,
   ok_expr G (ans, tdisjR waiting active) -> ok_expr G (ans, waiting).
 Proof.
-  intros G ans waiting active [[c Hclosed] [Htight [Hans Hacyclic]]].
-  simpl in Hclosed, Htight, Hacyclic.
-  repeat split.
-  - exists c. exact (proj1 Hclosed).
-  - exact (proj1 Htight).
+  intros G ans waiting active [Htree Hans].
+  simpl in Htree.
+  split.
+  - exact (proj1 Htree).
   - exact Hans.
-  - exact (proj1 Hacyclic).
 Qed.
 
 Lemma ok_expr_disj_context : forall G ans E t,
@@ -671,7 +667,7 @@ Proof.
 Qed.
 
 Theorem immediate_waiting_mark_handoff_left : forall G ans active m,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjL active (erase_mark m)) ->
   exists target,
     carried_multi G (ans, mark_disjL_right active m) target /\
@@ -702,7 +698,7 @@ Proof.
 Qed.
 
 Theorem immediate_waiting_mark_handoff_right : forall G ans active m,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjR (erase_mark m) active) ->
   exists target,
     carried_multi G (ans, mark_disjR_left m active) target /\
@@ -733,7 +729,7 @@ Proof.
 Qed.
 
 Corollary immediate_waiting_mark_selected_left : forall G ans active m,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjL active (erase_mark m)) ->
   active_mark m ->
   exists target,
@@ -748,7 +744,7 @@ Proof.
 Qed.
 
 Corollary immediate_waiting_mark_selected_right : forall G ans active m,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjR (erase_mark m) active) ->
   active_mark m ->
   exists target,
@@ -763,7 +759,7 @@ Proof.
 Qed.
 
 Corollary immediate_waiting_mark_finishes_left : forall G ans active m,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjL active (erase_mark m)) ->
   active_mark m ->
   exists e', tracked_finish G (ans, mark_disjL_right active m) e'.
@@ -777,7 +773,7 @@ Proof.
 Qed.
 
 Corollary immediate_waiting_mark_finishes_right : forall G ans active m,
-  closed_env G ->
+  ok_env G ->
   ok_expr G (ans, tdisjR (erase_mark m) active) ->
   active_mark m ->
   exists e', tracked_finish G (ans, mark_disjR_left m active) e'.
@@ -824,7 +820,7 @@ Qed.
 
 Lemma disj_shell_macro : forall G ans inner m E,
   disj_shell inner m -> disj_only_ctx E ->
-  closed_env G ->
+  ok_env G ->
   ok_expr G (erase_marked (ans, plug_active_mark E m)) ->
   (exists K,
       disj_only_ctx K /\
@@ -907,7 +903,7 @@ Proof.
 Qed.
 
 Theorem disj_shell_eventually_focused : forall G ans inner m,
-  closed_env G -> ok_expr G (erase_marked (ans, m)) ->
+  ok_env G -> ok_expr G (erase_marked (ans, m)) ->
   disj_shell inner m ->
   exists out K,
     carried_multi G (ans, m) (out, plug_active_mark K inner) /\

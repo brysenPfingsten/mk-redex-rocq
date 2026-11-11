@@ -153,9 +153,9 @@ Combining unique decomposition with the mutually exclusive root cases yields `st
 
 ### Preservation
 
-The runtime invariant in [Operational/WellFormed.v](../src/Operational/WellFormed.v) combines four obligations: some global closure bound exists; active states and their continuations are tight at local counters; previously accumulated answers have closed substitutions; and active tree substitutions are acyclic.
-A global bound alone is insufficient because sibling branches can have different local counters.
-A continuation must be valid for every state that can emerge from its left subtree.
+The runtime invariant in [Language/WellFormed.v](../src/Language/WellFormed.v) combines `ok_tree` with `ok_sub` for accumulated answers. `ok_sub` requires both scoped bindings and acyclicity, so every active and accumulated substitution satisfies the same contract. [Operational/WellFormed.v](../src/Operational/WellFormed.v) proves preservation and progress.
+`ok_tree` checks goals, substitutions, and pending relation calls at each state's own counter, including relation existence and arity.
+A conjunction's continuation must be valid for every state in its left subtree. An existential goal-scoping check also validates the continuation when that subtree has no states.
 
 Head preservation is proved by cases on the head rule.
 Unification uses closure and acyclicity of the output substitution.
@@ -163,7 +163,7 @@ Fresh allocation opens with the consecutive IDs starting at the local counter, r
 Proceed lookup uses the closed environment and the arity premise to open the relation body.
 Structural rules preserve the needed state/continuation relationships.
 
-The tightness argument needs more than replacing a closed redex by a closed reduct.
+The `ok_tree` preservation argument needs more than replacing a valid redex by a valid reduct.
 A surrounding conjunction mentions all states reachable through its left subtree.
 State-transfer lemmas establish that its suspended goal remains closed at the counters produced by the head rewrite.
 This handles fresh allocation and the distribution of a continuation across disjunctions.
@@ -285,7 +285,7 @@ The opening theorem then turns the source body's lexical witness into a witness 
 Completeness needs to schedule chosen work that need not already be a delay.
 [Correctness/Focus.v](../src/Correctness/Focus.v) uses the existing occurrence machinery without changing the machine.
 In a proof-only tree, wrap the chosen work in a marked delay.
-This preserves closure, tightness, states occurring in the subtree, and acyclicity.
+This preserves tree validity, states occurring in the subtree, and acyclicity.
 Apply eventual activation to that tree, but stop its carry trace at the first active occurrence.
 
 Before activation, a carry cannot inspect or bubble the distinguished delay itself.

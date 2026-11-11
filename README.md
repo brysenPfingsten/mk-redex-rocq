@@ -21,6 +21,8 @@ Disequality, negation, cuts, and constraint stores beyond substitutions are not 
 | Executable correspondence | `next_step_spec`, `run_steps_exact`, and `multi_run_steps`: executable steps agree with reduction, and every finite reduction endpoint can be reproduced with enough fuel. [Execution](src/Execution) |
 | Checked interface | Invalid source requests are rejected before execution; reports have certified completion status, traces, and substitution projection. [Execution/Interface.v](src/Execution/Interface.v) |
 
+The `ok_*` validity judgments are defined together in [Language/WellFormed.v](src/Language/WellFormed.v); their opening and bound lemmas are in [Language/Scoping.v](src/Language/Scoping.v).
+
 The combined theorem, `source_solution_iff_runner_answer`, says that a ground assignment on the original query variables satisfies the source goal if and only if some finite-fuel run observes an answer representing that assignment.
 It assumes a closed relation environment, a correctly scoped source goal, and query IDs below the initial allocation counter.
 The initial substitution is empty.

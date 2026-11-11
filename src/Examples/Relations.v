@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Environments.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Environments.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Correctness Require Import Unification.
@@ -33,7 +33,7 @@ Definition listo : goal :=
 
 Definition relation_library : env := [(3,appendo); (2,membero); (1,listo)].
 
-Theorem relation_library_closed : closed_env relation_library.
+Theorem relation_library_closed : ok_env relation_library.
 Proof.
   intros r arity body Hlook. destruct r as [|[|[|r]]]; simpl in Hlook.
   all: try solve [destruct r; discriminate].

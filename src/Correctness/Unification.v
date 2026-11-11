@@ -1,4 +1,4 @@
-From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Substitution Unification Trees.
+From MkRedex.Language Require Import WellFormed Scoping ScopedUnification Terms Goals Substitution Unification Trees.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Operational Require Import WellFormed Reduction.
@@ -7,7 +7,7 @@ Import ListNotations.
 Set Default Goal Selector "!".
 
 Lemma eval_term_closed_total : forall t d c rho beta,
-  closed_term d c t -> List.length beta = d ->
+  ok_term d c t -> List.length beta = d ->
   exists v, eval_term rho beta t = Some v.
 Proof.
   induction t; intros d c rho beta Hclosed Hlen; simpl in *;
@@ -22,7 +22,7 @@ Proof.
 Qed.
 
 Lemma Unify_ground_sound : forall c s t u s' rho,
-  acyclic_sub s -> closed_term 0 c t ->
+  acyclic_sub s -> ok_term 0 c t ->
   Unify t u s (Some s') -> satisfies_sub rho s' ->
   exists v, eval_term rho [] t = Some v /\ eval_term rho [] u = Some v.
 Proof.
@@ -49,7 +49,7 @@ Qed.
     satisfying the source equality. The existential witness is the SAME
     witness used to represent the answer, including hidden fresh IDs. *)
 Theorem unification_answer_sound : forall G query c t u s s' rho,
-  acyclic_sub s -> closed_term 0 c t ->
+  acyclic_sub s -> ok_term 0 c t ->
   Unify t u s (Some s') ->
   represents query (mkstate s' c) rho ->
   solution G query (gunify t u) rho.
@@ -64,7 +64,7 @@ Qed.
 (** The connection also applies when the success is reached by the certified
     executable one-step interface, rather than supplied as a Unify proof. *)
 Theorem executable_unification_answer_sound : forall G query c t u s s' rho Hok,
-  acyclic_sub (st_sub s) -> closed_term 0 c t ->
+  acyclic_sub (st_sub s) -> ok_term 0 c t ->
   next_step G ([], tgoal (gunify t u) s) Hok =
     Some ([], tgoal gsucc s') ->
   represents query s' rho -> solution G query (gunify t u) rho.
@@ -128,7 +128,7 @@ Proof.
 Qed.
 
 Lemma ground_sub_apply : forall t c rho v,
-  closed_term 0 c t -> eval_term rho [] t = Some v ->
+  ok_term 0 c t -> eval_term rho [] t = Some v ->
   ApplySub (ground_sub c rho) t (quote v).
 Proof.
   induction t; intros c rho v Hclosed Heval; simpl in *;
@@ -144,7 +144,7 @@ Proof.
 Qed.
 
 Lemma lookup_closed_binding : forall c s x t,
-  closed_sub c s -> lookup x s = Some t -> x < c /\ closed_term 0 c t.
+  scoped_sub c s -> lookup x s = Some t -> x < c /\ ok_term 0 c t.
 Proof.
   intros c s. induction s as [|[y u] s IH]; intros x t Hs Hlook; [discriminate|].
   simpl in *. destruct Hs as [Hy [Hu Hs]].
@@ -154,7 +154,7 @@ Proof.
 Qed.
 
 Lemma ground_sub_models : forall c rho s,
-  closed_sub c s -> satisfies_sub rho s -> models_sub (ground_sub c rho) s.
+  scoped_sub c s -> satisfies_sub rho s -> models_sub (ground_sub c rho) s.
 Proof.
   intros c rho s Hclosed Hmodel x t Hlook r Happ.
   destruct (lookup_closed_binding c s x t Hclosed Hlook) as [Hx Ht].
@@ -165,7 +165,7 @@ Proof.
 Qed.
 
 Lemma ground_sub_unifier : forall c rho t u v,
-  closed_term 0 c t -> closed_term 0 c u ->
+  ok_term 0 c t -> ok_term 0 c u ->
   eval_term rho [] t = Some v -> eval_term rho [] u = Some v ->
   unifier (ground_sub c rho) t u.
 Proof.
@@ -177,8 +177,8 @@ Proof.
 Qed.
 
 Theorem ground_solution_unification_succeeds : forall c rho s t u v,
-  acyclic_sub s -> closed_sub c s ->
-  closed_term 0 c t -> closed_term 0 c u -> satisfies_sub rho s ->
+  acyclic_sub s -> scoped_sub c s ->
+  ok_term 0 c t -> ok_term 0 c u -> satisfies_sub rho s ->
   eval_term rho [] t = Some v -> eval_term rho [] u = Some v ->
   exists s', Unify t u s (Some s').
 Proof.
@@ -194,7 +194,7 @@ Proof.
 Qed.
 
 Lemma ground_sub_models_reflect : forall c rho s,
-  closed_sub c s -> models_sub (ground_sub c rho) s -> satisfies_sub rho s.
+  scoped_sub c s -> models_sub (ground_sub c rho) s -> satisfies_sub rho s.
 Proof.
   intros c rho s Hclosed Hmodel x t Hlook.
   destruct (lookup_closed_binding c s x t Hclosed Hlook) as [Hx Ht].
@@ -208,8 +208,8 @@ Proof.
 Qed.
 
 Theorem ground_unification_complete : forall c rho s t u v,
-  acyclic_sub s -> closed_sub c s ->
-  closed_term 0 c t -> closed_term 0 c u -> satisfies_sub rho s ->
+  acyclic_sub s -> scoped_sub c s ->
+  ok_term 0 c t -> ok_term 0 c u -> satisfies_sub rho s ->
   eval_term rho [] t = Some v -> eval_term rho [] u = Some v ->
   exists s', Unify t u s (Some s') /\ satisfies_sub rho s'.
 Proof.
@@ -239,7 +239,7 @@ Definition compatible_unifier (s : sub) (t u : term) (candidate : sub) : Prop :=
     acyclic solution. Prefix extension additionally records the operational
     representation of substitutions as lists with new bindings at the front. *)
 Record most_general_extension (c : nat) (s : sub) (t u : term) (answer : sub) : Prop := {
-  mgu_closed : closed_sub c answer;
+  mgu_closed : scoped_sub c answer;
   mgu_acyclic : acyclic_sub answer;
   mgu_extends : exists prefix, answer = prefix ++ s;
   mgu_preserves_bindings : forall x v, lookup x s = Some v -> lookup x answer = Some v;
@@ -260,7 +260,7 @@ Record unification_correct_result (c : nat) (s : sub) (t u : term)
 }.
 
 Lemma Unify_mgu : forall c s t u answer,
-  acyclic_sub s -> closed_sub c s -> closed_term 0 c t -> closed_term 0 c u ->
+  acyclic_sub s -> scoped_sub c s -> ok_term 0 c t -> ok_term 0 c u ->
   Unify t u s (Some answer) -> most_general_extension c s t u answer.
 Proof.
   intros c s t u answer Hacyc Hsub Ht Hu Hresult. constructor.
@@ -275,7 +275,7 @@ Proof.
 Qed.
 
 Lemma Unify_correct_result : forall c s t u result,
-  acyclic_sub s -> closed_sub c s -> closed_term 0 c t -> closed_term 0 c u ->
+  acyclic_sub s -> scoped_sub c s -> ok_term 0 c t -> ok_term 0 c u ->
   Unify t u s result -> unification_correct_result c s t u result.
 Proof.
   intros c s t u result Hacyc Hsub Ht Hu Hresult.
@@ -305,7 +305,7 @@ Qed.
     lemmas supply the algebraic facts; totality and functionality assemble
     them into this single contract. See docs/proofs.md, Unification. *)
 Theorem unification_correct : forall c s t u,
-  acyclic_sub s -> closed_sub c s -> closed_term 0 c t -> closed_term 0 c u ->
+  acyclic_sub s -> scoped_sub c s -> ok_term 0 c t -> ok_term 0 c u ->
   exists! result, unification_correct_result c s t u result.
 Proof.
   intros c s t u Hacyc Hsub Ht Hu.
