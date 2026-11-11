@@ -134,9 +134,10 @@ reimplementing scope or arity validation. The generated `search.ml` and
 
 `Examples/Relations.v` contains the extracted `appendo`, `membero`, and
 `listo` definitions and source-level satisfaction lemmas. The other example
-modules check syntax opening, semantic edge cases, validator rejection, and
-a combined recursive query. Files under `extract/examples` are executable
-inputs; their guide records expected answers and explains infinite examples.
+modules check syntax opening, well-formedness boundaries, semantic edge cases,
+validator rejection, and a combined recursive query. Files under
+`extract/examples` are executable inputs; their guide records expected answers
+and explains infinite examples.
 
 `_CoqProject` registers every Rocq module under `MkRedex`. Adding a module
 requires updating that list. `extract/Makefile` derives its `coqchk` module
