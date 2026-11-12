@@ -4,6 +4,10 @@ From MkRedex.Operational Require Import Reduction.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 Lemma Head_closed : forall G c t t',
   closed_env G -> closed_tree G c t -> Head G t t' ->
   exists c', closed_tree G c' t'.
@@ -13,7 +17,8 @@ Proof.
   try (exists c; easy).
   - exists c.
     destruct Hct as (Hlte & (Hct1 & Hct2) & Hcs).
-    pose proof (Unify_closed _ _ _ _ _ Hct1 Hct2 Hcs H) as Hcs'.
+    pose proof (proj1 (solve_safe _ _ _ _ _ H)) as Hlocal.
+    pose proof (closed_sub_mono (st_cnt s) c s' Hlte Hlocal) as Hcs'.
     repeat split; assumption.
   - exists (c + k).
     destruct Hct as (Hlte & Hcg & Hcs).
@@ -279,7 +284,7 @@ Proof.
   intros G t t' Hce Htt Hhead.
   destruct Hhead; simpl in *; try tauto.
   - destruct Htt as [[Ht1 Ht2] Hsub]. split; [exact I |].
-    exact (Unify_closed (st_cnt s) t1 t2 (st_sub s) s' Ht1 Ht2 Hsub H).
+    exact (proj1 (solve_safe _ _ _ _ _ H)).
   - destruct Htt as [[Hg1 Hg2] Hsub]. split.
     + split; assumption.
     + intros out Hin. apply state_in_tgoal_eq in Hin. subst. exact Hg2.
@@ -367,7 +372,7 @@ Lemma Head_acyclic : forall G r r',
 Proof.
   intros G r r' Hac Hhead.
   destruct Hhead; simpl in *; try tauto.
-  - eapply Unify_acyclic; eassumption.
+  - exact (proj2 (solve_safe _ _ _ _ _ H)).
 Qed.
 
 Lemma plug_acyclic_inv : forall E r,
@@ -534,7 +539,7 @@ Proof.
     + left. exact I.
     + right. simpl in Htight. destruct Htight as [Hgoal Hsub].
       simpl in Hgoal. destruct Hgoal as [Ht1 Ht2].
-      destruct (Unify_total (st_cnt s) (st_sub s) t t0
+      destruct (Solve_total (st_cnt s) (st_sub s) t t0
         Hacyclic Hsub Ht1 Ht2) as [[s'|] Hunify].
       * eexists. apply S_ctx with (E := chole). apply H_unify_ok. exact Hunify.
       * eexists. apply S_ctx with (E := chole). apply H_unify_fail. exact Hunify.
@@ -604,3 +609,5 @@ Proof.
   intros G e e' Hprogram Hmulti.
   apply progress. exact (closed_program_multi_ok G e e' Hprogram Hmulti).
 Qed.
+
+End WithSolver.

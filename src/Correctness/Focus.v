@@ -4,6 +4,10 @@ From Stdlib Require Import List Lia.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 (** Replace the distinguished delay occurrence by arbitrary work. Until the
     occurrence is selected, scheduler steps cannot inspect that work. *)
 Fixpoint fill_mark (m : marked_tree) (work : tree) : tree :=
@@ -213,3 +217,5 @@ Proof.
   rewrite remark_fill in Hrun. rewrite remark_goals in Hgoals.
   exists out, target. split; [exact Hrun|]. split; assumption.
 Qed.
+
+End WithSolver.

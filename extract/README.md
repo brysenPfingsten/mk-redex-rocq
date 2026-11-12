@@ -132,9 +132,15 @@ caller's responsibility. Use `Frontend.run` or `Search.checked_run` for
 untrusted program inputs, rather than `run_validated`, `next_step` or
 `run_steps` directly.
 
-Proofs inherit the existing proof irrelevance and dependent functional
-extensionality assumptions of executable unification. Extraction, OCaml
-compilation, parsing and display are outside the Rocq kernel's verification.
+The public executable uses the structurally recursive solver. Its core search
+soundness/completeness and solver-independence proofs have no axiom dependencies.
+The answer-projection theorem retains dependent functional extensionality from
+the existing substitution-application development. Extraction, OCaml compilation,
+parsing and display are outside the Rocq kernel's verification.
+Solvers may orient or expand bindings differently. The correspondence theorem
+compares their ordered answers by represented solutions, and preserves reduction
+step counts and trace control structure. It does not require identical printed
+free variable names or claim equal internal unification costs.
 See `../docs/proofs.md` for the full semantic result and scope.
 
 ## Verification
@@ -154,3 +160,12 @@ rejections directly in Rocq.
 
 See [the relation examples](examples/README.md) for queries in multiple
 directions, expected answers, residual sharing and infinite symbolic search.
+
+## Solver benchmarks
+
+The opt-in [benchmark suite](../benchmarks/README.md) compares both extracted
+solver instances on identical workloads. It measures search-only and checked
+execution separately, verifies ordered projected answers and step counts, and
+supports bytecode and native compilation. It does not run during ordinary
+correctness checks. The [recorded measurements](../benchmarks/results/README.md)
+include raw samples, allocation counts, and the current conversion overhead.

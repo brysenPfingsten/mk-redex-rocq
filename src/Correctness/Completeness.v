@@ -8,6 +8,10 @@ From MkRedex.Correctness Require Import Unification Focus Success Soundness.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 Definition initial_expr (counter : nat) (g : goal) : expr :=
   ([], tgoal g (mkstate [] counter)).
 
@@ -175,7 +179,7 @@ Proof.
       * exact Hmodel.
       * rewrite Hnext. rewrite <- HEgoals, Hstack in Htail. exact Htail.
   - destruct Hlocal as [[Ht Hu] Hsub].
-    destruct (ground_unification_complete (st_cnt s) rho (st_sub s) t u v
+    destruct (Solve_ground_complete (st_cnt s) rho (st_sub s) t u v
       Hacyclic Hsub Ht Hu Hmodel H H0) as [s' [Hunify Hmodel']].
     set (state' := mkstate s' (st_cnt s)).
     assert (Hstep : step G (out,fill_mark target (tgoal (gunify t u) s))
@@ -311,3 +315,5 @@ Proof.
   - intros [fuel [answer [Hin Hrepr]]].
     eapply executable_search_soundness; eassumption.
 Qed.
+
+End WithSolver.

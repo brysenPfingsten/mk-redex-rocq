@@ -54,3 +54,9 @@ time-of-build-pretty.log
 /extract/interface-tests
 
 /extract/relation-tests
+/extract/benchmark_search.ml
+/extract/benchmark_search.mli
+/extract/benchmark-bytecode
+/extract/benchmark-native
+/extract/unifier-benchmark-bytecode
+/extract/unifier-benchmark-native

@@ -1,7 +1,11 @@
 From Stdlib Require Import List Arith.
-From MkRedex.Language Require Import Terms Substitution Goals Environments Trees Unification.
+From MkRedex.Language Require Import Terms Substitution Goals Environments Trees.
 Import ListNotations.
 Set Default Goal Selector "!".
+
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
 
 (* ================================================================== *)
 (*  Head — inductive head-reduction relation                           *)
@@ -9,18 +13,20 @@ Set Default Goal Selector "!".
 
 (** [Head G r r'] holds when tree [r] reduces to [r'] by a single head step
     in environment [G].  Constructors correspond one-to-one with the
-    mk-redex head-reduction rules. *)
+    mk-redex head-reduction rules. The implicit [Solver] parameter fixes a
+    deterministic implementation of the semantic unification contract;
+    search rules do not prescribe its binding-list representation. *)
 Inductive Head (G : env) : tree -> tree -> Prop :=
 
   (* ---- Goal rules ---- *)
 
   | H_unify_ok : forall t1 t2 s s',
-      Unify t1 t2 (st_sub s) (Some s') ->
+      Solve (st_cnt s) t1 t2 (st_sub s) (Some s') ->
       Head G (tgoal (gunify t1 t2) s)
              (tgoal gsucc (mkstate s' (st_cnt s)))
 
   | H_unify_fail : forall t1 t2 s,
-      Unify t1 t2 (st_sub s) None ->
+      Solve (st_cnt s) t1 t2 (st_sub s) None ->
       Head G (tgoal (gunify t1 t2) s) tfail
 
   | H_disj : forall g1 g2 s,
@@ -102,14 +108,17 @@ Hint Constructors Head : core.
 Lemma Head_functional : forall G r r' r'',
   Head G r r' -> Head G r r'' -> r' = r''.
 Proof.
-  intros.
-  inversion H; inversion H0; subst;
-  try discriminate; try congruence;
-  injection H5 as <- <-; subst;
-  apply Unify_functional with (1:=H1) in H4.
-  - injection H4 as <-. reflexivity.
-  - discriminate H4.
-  - discriminate H4.
+  intros G r r' r'' H H'.
+  inversion H; inversion H'; subst; try discriminate; try congruence;
+    repeat match goal with
+    | E : tgoal (gunify _ _) _ = tgoal (gunify _ _) _ |- _ =>
+        injection E; intros; subst
+    end;
+    match goal with
+    | A : Solve _ _ _ _ _, B : Solve _ _ _ _ _ |- _ =>
+        pose proof (solve_functional _ _ _ _ _ _ A B) as E;
+        inversion E; reflexivity
+    end.
 Qed.
 
 (* ================================================================== *)
@@ -175,3 +184,8 @@ Proof.
     destruct IHHmulti as [b Hb].
     exists (a ++ b). rewrite Hb, Ha, app_assoc. reflexivity.
 Qed.
+
+End WithSolver.
+
+Notation "G '|=' e '-->' e'" := (step G e e')
+  (at level 40, e at level 39).

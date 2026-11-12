@@ -35,6 +35,12 @@
                 "demo"
                 "interface-tests"
                 "relation-tests"
+                "benchmark_search.ml"
+                "benchmark_search.mli"
+                "benchmark-bytecode"
+                "benchmark-native"
+                "unifier-benchmark-bytecode"
+                "unifier-benchmark-native"
               ])
               && builtins.match ".*\\.(vo|vos|vok|glob|cmi|cmo|cmx|o|aux|cache)$" name == null);
         };

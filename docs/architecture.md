@@ -26,7 +26,7 @@ checks tree structure against a global counter bound. The module also proves
 opening safety and the scoping of fresh argument blocks. It contains no
 small-step machine theorem and does not depend on the reduction rules.
 
-`Language/Unification.v` is the relational specification and its general
+`Language/Unification.v` specifies the reference unification procedure and its general
 metatheory: functionality, extension, acyclicity, total walking/application,
 soundness, most-generality, and failure completeness. This remains a single
 substantial module because the proofs share a model/factorization vocabulary
@@ -35,6 +35,29 @@ results needing allocation bounds: preservation of closed substitutions and
 totality of unification. The executable unifier is separate in
 `Execution/Unifier.v`; machine preservation no longer has to contain its
 fuel-search implementation.
+
+`Language/Solver.v` defines the implementation-independent contract used by
+reduction. Each implementation selects a deterministic outcome that represents
+exactly the old constraints together with the new equality and preserves runtime
+scope and acyclicity. `Execution/Solvers.v` packages the reference and structural
+implementations. `Execution/DefaultSolver.v` chooses the structural one for public
+execution. Generic operational, executable, and correctness modules quantify over
+a `Solver`, so their theorems apply to either instance.
+
+`Execution/StructuralUnifier.v` implements the indexed structural algorithm.
+Its semantic proofs are in `Correctness/StructuralUnification.v` and
+`StructuralUnificationBridge.v`. `StructuralAdapter.v` converts both terms and
+existing runtime substitutions, restores original variable IDs, and establishes
+ground-model equivalence. `StructuralSafety.v` proves decoded stores are scoped
+and acyclic. `Correctness/GroundUnification.v` contains the reference procedure's
+ground-model and MGU proofs; `Correctness/Unification.v` exposes the solver-level
+answer theorem without tying search to that procedure.
+
+`Correctness/SolverIndependence.v` relates different solver instances step for
+step. Equivalent trees retain source syntax and scheduling constructors while
+allowing different equivalent substitution lists. Equal-budget runs have ordered,
+pointwise equivalent answers; reporting runs have equal executed step counts and
+pointwise equivalent traces. See the proof guide for the invariants.
 
 Concrete opening and term-size examples live in `Examples/SyntaxExamples.v`.
 They are compiled and audited like the rest of the development, but are not
@@ -82,12 +105,14 @@ index. These modules depend on source scoping, not on search scheduling.
 
 ## Correctness proofs
 
-`Correctness/Unification.v` connects ground valuations to substitution
-application and the existing unifier models. It contains both directions of
-ground unification correctness and the finite substitution encoding of a
-valuation. It also packages the solver guarantees as `unification_correct_result`
-and proves `unification_correct` and `unify_fn_correct`. Keeping these together makes the bridge visible without
-splitting a short soundness lemma away from the completeness construction.
+`Correctness/GroundUnification.v` connects ground valuations to substitution
+application and the reference unifier's models. It proves both directions of
+ground correctness, constructs finite ground substitutions for valuations, and
+packages the reference procedure's MGU guarantees. `Correctness/Unification.v`
+re-exports these results and proves the answer-level consequence of the abstract
+solver contract. Separating the reference mathematics from machine execution
+lets the contract and structural instance precede the generic reduction proofs
+without introducing a dependency cycle.
 
 `Soundness.v` interprets trees and expressions and proves backward semantic
 preservation through a step and through a finite run. `Completeness.v` keeps
@@ -140,17 +165,3 @@ as modules transitively imported by the runner. The Nix flake builds from
 filtered source, runs that audit and the executable tests, and installs the
 libraries and CLI. It does not install a pre-push hook or require a hosted CI
 service: `nix flake check -L` is the common local verification entry point.
-
-
-## Structural-unification implementation
-
-`Execution/StructuralUnifier.v` is the indexed McBride algorithm under
-construction as a replacement for the existing executable unifier. Its
-implementation uses no axioms or well-founded recursion. The proof modules
-`Correctness/StructuralUnification.v` and `StructuralUnificationBridge.v`
-establish equality of represented ground solutions and success/failure
-agreement with the original inductive relation, also without axioms. It is
-not yet wired into the search machine, and
-the existing executable correctness results still refer to `Execution/Unifier.v`.
-See [the implementation guide](structural-unification.md) for the recursion
-structure, new API, checks, and remaining correctness/integration work.

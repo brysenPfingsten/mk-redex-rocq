@@ -5,6 +5,10 @@ From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay D
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 
 (** Finite bursts and disjunction handoff.  A burst stops before a root
     delay release, so lifting it preserves the marked occurrence. *)
@@ -949,3 +953,5 @@ Proof.
   }
   exact (Hmain (index (ans, m)) (ans, m) eq_refl Hok Hshell).
 Qed.
+
+End WithSolver.

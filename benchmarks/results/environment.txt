@@ -1,0 +1,14 @@
+Date: 2026-11-10
+CPU: AMD Ryzen 7 5800X (8 cores / 16 threads)
+Pinned logical CPU: 2
+OS: Linux-6.18.37-x86_64-with-glibc2.44
+OCaml: 5.4.1
+Reference revision: a85bc15c1a5ee39055c32372d46756c8304afb7a
+Source state: uncommitted solver-generalization working tree plus benchmark harness
+Source SHA-256: bc4092076aca7f7a843bad9b41cf2cf9d717dc88a8ac0c1569c22f2c3f503308
+Samples per solver/case/mode: 7
+Target CPU seconds per sample: 0.05
+Repetition cap: 100000
+GC minor heap: 262144 words (OCaml default; see run stderr)
+Flags: compiler defaults, no unsafe options
+Machine was not isolated; CPU time is the primary metric.

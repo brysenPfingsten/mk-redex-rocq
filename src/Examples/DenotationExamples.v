@@ -1,3 +1,4 @@
+From MkRedex.Execution Require Import DefaultSolver.
 From Stdlib Require Import List.
 From MkRedex.Language Require Import Terms Goals Environments Substitution Trees.
 From MkRedex.Denotational Require Import Denotation.

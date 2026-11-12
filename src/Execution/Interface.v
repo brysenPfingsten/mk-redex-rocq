@@ -1,11 +1,15 @@
 From MkRedex.Language Require Import Scoping ScopedUnification Terms Goals Substitution Unification Environments Trees.
-From Stdlib Require Import List Arith Lia Logic.ProofIrrelevance.
+From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation.
 From MkRedex.Execution Require Import Input Executable RunnerCorrespondence.
 From MkRedex.Operational Require Import Reduction WellFormed.
 From MkRedex.Correctness Require Import Completeness Soundness.
 Import ListNotations.
 Set Default Goal Selector "!".
+
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
 
 
 Definition terminalb (e : expr) : bool :=
@@ -116,7 +120,8 @@ Inductive response := InputRejected : input_error -> response | Evaluated : repo
 Definition run_validated (G : env) (counter : nat) (query : list nat) (g : goal)
   (Hvalid : valid_request G counter query g) (fuel : nat) (capture : bool) : report.
 Proof.
-  destruct Hvalid as [Henv [Hgoal Hquery]].
+  pose (Henv := proj1 Hvalid).
+  pose (Hgoal := proj1 (proj2 Hvalid)).
     pose (Hok := initial_expr_ok G counter g Hgoal).
     pose (result := execute G Henv capture fuel (initial_expr counter g) Hok).
     assert (Hanswers : Forall (fun s => acyclic_sub (st_sub s))
@@ -163,22 +168,18 @@ Lemma run_validated_final : forall G counter query g Hvalid fuel capture,
   run_steps G (proj1 Hvalid) fuel (initial_expr counter g)
     (initial_expr_ok G counter g (proj1 (proj2 Hvalid))).
 Proof.
-  intros G counter query g [Henv [Hgoal Hquery]] fuel capture.
-  unfold run_validated. simpl.
-  replace (proj1 (conj Henv (conj Hgoal Hquery))) with Henv by apply proof_irrelevance.
-  replace (proj1 (proj2 (conj Henv (conj Hgoal Hquery)))) with Hgoal by apply proof_irrelevance.
-  apply execute_final.
+  intros G counter query g Hvalid fuel capture.
+  unfold run_validated. simpl. apply execute_final.
 Qed.
 
 Theorem run_validated_status : forall G counter query g Hv fuel capture,
   report_completion (run_validated G counter query g Hv fuel capture) = Complete <->
   is_value (execution_final (report_execution (run_validated G counter query g Hv fuel capture))).
 Proof.
-  intros G counter query g [Henv [Hgoal Hquery]] fuel capture.
-  unfold run_validated. simpl.
-  rewrite <- terminalb_spec.
-  destruct (terminalb (execution_final (execute G Henv capture fuel (initial_expr counter g)
-    (initial_expr_ok G counter g Hgoal)))); intuition discriminate.
+  intros G counter query g Hvalid fuel capture.
+  unfold run_validated. simpl. rewrite <- terminalb_spec.
+  match goal with |- (if ?b then _ else _) = Complete <-> _ =>
+    destruct b; intuition discriminate end.
 Qed.
 
 Definition projected_answer (query : list nat) (s : state) (bindings : list (nat * term)) : Prop :=
@@ -246,8 +247,9 @@ Theorem run_validated_exhausted : forall G counter query g Hv fuel capture,
   report_completion (run_validated G counter query g Hv fuel capture) = FuelExhausted ->
   report_steps (run_validated G counter query g Hv fuel capture) = fuel.
 Proof.
-  intros G counter query g [Henv [Hgoal Hquery]] fuel capture.
-  unfold run_validated. simpl. intro Hstatus.
+  intros G counter query g Hv fuel capture.
+  pose (Henv := proj1 Hv). pose (Hgoal := proj1 (proj2 Hv)).
+  unfold run_validated. simpl. fold Henv Hgoal. intro Hstatus.
   pose proof (execute_steps_bound G Henv capture fuel (initial_expr counter g)
     (initial_expr_ok G counter g Hgoal)) as Hle.
   destruct (Nat.lt_ge_cases (execution_steps (execute G Henv capture fuel
@@ -295,3 +297,5 @@ Proof.
     + exists err. reflexivity.
     + contradiction.
 Qed.
+
+End WithSolver.

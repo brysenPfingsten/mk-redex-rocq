@@ -5,6 +5,10 @@ From MkRedex.Execution Require Import Executable.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 Lemma next_step_checked_none : forall G Henv e Hok,
   next_step_checked G Henv e Hok = None -> next_step G e Hok = None.
 Proof.
@@ -46,3 +50,5 @@ Proof.
   destruct (multi_steps_n G e e' Hrun) as [n Hn].
   exists n. apply run_steps_exact. exact Hn.
 Qed.
+
+End WithSolver.

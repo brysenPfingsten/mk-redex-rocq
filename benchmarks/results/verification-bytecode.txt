@@ -1,0 +1,23 @@
+OCaml 5.4.1; bytecode; 64-bit; minor heap 262144 words; 7 samples; target 0.050s
+verified single_binding/1: 1 steps, 1 answers
+verified unused_scope/64: 1 steps, 1 answers
+verified unused_scope/256: 1 steps, 1 answers
+verified ground_chain/16: 1 steps, 1 answers
+verified ground_chain/64: 1 steps, 1 answers
+verified ground_chain/256: 1 steps, 1 answers
+verified ground_balanced/6: 1 steps, 1 answers
+verified ground_balanced/9: 1 steps, 1 answers
+verified binding_chain/8: 22 steps, 1 answers
+verified binding_chain/24: 70 steps, 1 answers
+verified binding_chain/48: 142 steps, 1 answers
+verified appendo_forward/4: 73 steps, 1 answers
+verified appendo_forward/12: 193 steps, 1 answers
+verified appendo_forward/24: 373 steps, 1 answers
+verified appendo_splits/4: 80 steps, 5 answers
+verified appendo_splits/8: 144 steps, 9 answers
+verified membero/8: 87 steps, 8 answers
+verified membero/24: 247 steps, 24 answers
+verified listo_prefix/128: 128 steps, 13 answers
+verified listo_prefix/256: 256 steps, 26 answers
+verified occurs_failure/64: 1 steps, 0 answers
+verified occurs_failure/256: 1 steps, 0 answers

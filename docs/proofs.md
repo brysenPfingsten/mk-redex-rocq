@@ -95,9 +95,141 @@ Totality supplies a relational outcome, so searching increasing fuel must eventu
 Functionality then proves `unify_fn_spec`: the function and relation have exactly the same outcome on valid inputs.
 This establishes termination but is not an efficiency bound.
 
-### A single solver-correctness contract
+### The implementation-independent solver contract
 
-`unification_correct_result c s t u result`, in [Correctness/Unification.v](../src/Correctness/Unification.v), packages the individual results into one property.
+The reduction semantics is parameterized by `Language/Solver.v`'s `Solver`.
+A solver provides a relation selecting its outcomes, a certified executable
+function, and proofs of functionality, runtime safety, and exact preservation
+of ground solutions. The unification head rules use this relation through
+`Solve`; they do not inspect how an answer substitution is represented.
+
+For valid inputs, a valuation models a successful result exactly when it models
+the input substitution and gives the two input terms the same ground value.
+A failed result has no ground models, so failure excludes every compatible
+valuation. The reverse direction of the contract is essential: a solver that
+arbitrarily binds an otherwise free variable to zero might return a unifier,
+but it would discard solutions and fail the contract. Successful results must
+also be closed at the current allocation counter and acyclic. The head rule
+keeps the allocation counter unchanged.
+
+Functionality belongs to each chosen implementation. The contract does not
+require different implementations to choose the same binding direction,
+expand terms at the same time, or return identical lists. Consequently each
+machine instance is deterministic without treating arbitrary equivalent
+substitutions as nondeterministic choices at every step. All operational and
+search correctness theorems quantify over the solver. Their existing proofs
+use `solve_safe` for preservation, `Solve_total` for progress, and `solve_models`
+for the logical meaning of unification. `Solve_ground_complete` derives the
+successful case needed by search completeness from the certified outcome and
+its model contract; an equality satisfied by a valuation cannot fail.
+
+### Structural unification and conversion
+
+`Execution/StructuralUnifier.v` implements the indexed, structurally recursive
+algorithm. `Correctness/StructuralUnification.v` proves its ground-model
+contract, and `StructuralUnificationBridge.v` connects that contract to the
+reference relation. `Execution/Solvers.v` packages both the reference and
+structural procedures as instances of the same interface.
+`Execution/DefaultSolver.v` selects structural unification for the examples
+and public executable. The reference implementation remains available for
+comparison; reproducing its raw binding lists is not a goal.
+
+The algorithm's outer recursion decreases the number of variables whenever
+an accumulated elimination is applied. Its inner recursion descends through the
+first input term's pair components, threading the accumulator between calls.
+This is accepted by Rocq's ordinary structural guard checker. The proof of
+`amgu_correct` follows the same nested inductions. It characterizes an accumulator
+by valuations that factor through its substitution and proves that a successful
+call adds exactly the input equality to that model set.
+
+A single elimination has a crucial factorization property: valuations satisfying
+`x = t` correspond to valuations of the smaller scope after removing `x`.
+`check` returns precisely that smaller-scope term when the occurs check succeeds.
+The proof uses `thin` and `thick` to relate the two variable domains. If the check
+fails on a proper rigid term, equality would make a finite ground value contain
+itself as a proper subterm; the ground-size lemmas rule this out. Pair cases
+combine the two induction hypotheses, while postponement factors the valuation
+through the exposed elimination and invokes the smaller-scope hypothesis.
+
+`Correctness/StructuralAdapter.v` converts runtime terms and substitutions to
+the indexed representation and converts results back. Each elimination removes
+a variable from the indexed scope. The decoder carries a map from the remaining
+finite indices to their original runtime IDs, restricting it through `thin` at
+each elimination. It places later bindings before earlier ones. In particular,
+eliminating ID 0 does not rename an untouched original ID 1 to runtime ID 0.
+
+The proof `decode_models` establishes that the decoded list has exactly the
+ground models of the indexed accumulator. Injectivity of the ID map ensures
+that no two decoded bindings shadow one another. Lookup-based satisfaction is
+therefore equivalent to satisfying every equation in that list. Induction over
+the accumulator separates each eliminated variable's equation from the remaining
+accumulator, using `thick` and `thin` to relate their valuations.
+
+To convert an existing runtime substitution, `encode_sub` visits every allocated
+ID and adds its visible lookup binding as an equation. Using lookup matters:
+a shadowed entry is not an additional constraint. `encode_sub_models` proves
+that the accumulator describes exactly the original store's ground models.
+A closed acyclic store has a ground model, so conversion cannot fail; this gives
+`encode_sub_success`. `solve_state_valid` combines conversion, structural
+unification, and decoding, establishing failure agreement and model equivalence
+with the reference solver for arbitrary valid input stores.
+
+`Correctness/StructuralSafety.v` proves the additional representation properties
+needed by the runtime. Decoded terms use only the original IDs supplied by the
+name map, establishing closure. For acyclicity, each eliminated variable is
+absent from both the remaining accumulator's bindings and their right-hand
+sides. Adding its binding at the end cannot create a cycle: dependencies from
+existing bindings cannot return to the newly added variable. The proof lifts
+accessibility for the existing dependency graph to the extended graph, then
+constructs accessibility for the added variable. Induction over the accumulator
+gives `decode_acyclic`, and `solve_state_safe` packages closure and acyclicity
+for the structural solver instance.
+
+This wrapper currently reconstructs the indexed accumulator on each call.
+Structural termination removes the increasing-fuel search from public
+unification, but no performance comparison has been established.
+
+### Independence of search behavior from the solver
+
+`Correctness/SolverIndependence.v` proves a stronger result than equality of
+eventual solution sets. Its `state_equiv` requires equal allocation counters
+and identical ground models. `tree_equiv` relates trees with the same source
+goals and control constructors, including the selected disjunction orientation,
+while allowing corresponding states to have different equivalent substitutions.
+`expr_equiv` additionally pairs accumulated answers in their original order.
+It never sorts answers, removes duplicates, or identifies different branches.
+
+First, `solver_outcomes_equiv` compares two solver calls on equivalent valid
+stores. Each model contract describes the same conjunction of input constraints
+and term equality. Hence two successful results have identical ground models.
+A success on one side and failure on the other is impossible: closure and
+acyclicity provide a ground model of the successful result, and the other
+solver's failure contract would reject that very model.
+
+`head_solver_correspondence` then matches each head rule. Only unification needs
+the outcome argument. Fresh allocation agrees because the counters agree;
+opening therefore produces identical source goals. The remaining rules copy,
+move, or discard corresponding control structures. Context equivalence lifts
+this result through active contexts. `step_solver_correspondence` matches one
+reduction step with exactly one step, including delay release and answer
+promotion. There is no extra scheduling step for an internal unification action.
+
+Induction on a common step budget proves `run_steps_solver_independent`. At
+each iteration the first machine's step has a matching step in the second,
+and determinism identifies that step with the second executable's choice.
+One machine cannot stop while the other continues because equivalent trees
+agree on terminal shape. `ordered_answers_solver_independent` consequently
+pairs the complete observed answer lists with `Forall2`: corresponding answers
+represent the same assignments for every chosen query. This preserves answer
+order and multiplicity at every finite budget, not just the union of all answers.
+`execute_solver_independent` additionally proves equal executed step counts
+and pointwise equivalence of the optional traces, as well as equivalence of
+the final expressions. Internal unification costs and printed choices of free
+variable representatives are outside this behavioral equivalence.
+
+### The reference procedure's stronger contract
+
+`unification_correct_result c s t u result`, in [Correctness/GroundUnification.v](../src/Correctness/GroundUnification.v), packages the individual results into one property.
 Its specification field identifies the outcome selected by the relational solver.
 Its failure field states an if-and-only-if: the outcome is `None` exactly when no compatible acyclic unifier exists.
 Its success field states that the returned substitution is a `most_general_extension` of the input.
@@ -117,14 +249,14 @@ Functionality establishes exact agreement with the specified relational outcome.
 Finally, `Unify_total` supplies an outcome, and the contract's specification field makes it unique.
 This uniqueness belongs to the specified solver; different substitution representations can still be equally general mathematically.
 
-`unify_fn_correct` proves the same contract for the actual value computed by `unify_fn`.
+`unify_fn_correct` proves the same contract for the reference value computed by `unify_fn`.
 Its graph-equivalence theorem supplies a relational derivation for that value, and the packaging lemma supplies the full contract.
 The executable function is total on its proof-indexed valid domain; the theorem does not add a uniform bound on its internal fuel search.
 The relational contract theorem has no axiom dependencies; the executable theorem inherits the existing assumptions of executable unification.
 
 ### Ground valuations and the unifier
 
-[Correctness/Unification.v](../src/Correctness/Unification.v) connects these syntactic results to the source meaning.
+[Correctness/GroundUnification.v](../src/Correctness/GroundUnification.v) connects these syntactic results to the source meaning.
 A valuation satisfying a substitution gives a variable the same value as its visible binding.
 Induction over `Walk` and `ApplySub` therefore shows that they preserve ground interpretation.
 The relational success theorem then gives ground equality of unified inputs.
@@ -365,45 +497,23 @@ Soundness and completeness are transferred through its agreement with `run_steps
 
 ## Assumptions and verification boundaries
 
-The relational search soundness/completeness and ground unification results are closed under the global context: `Print Assumptions` reports no axiom dependencies.
-Executable results inherit proof irrelevance and dependent functional extensionality used in the executable unification development.
-Proof irrelevance identifies proofs of the same proposition; dependent functional extensionality identifies dependent functions with pointwise equal outputs.
-These assumptions concern proof infrastructure rather than adding an unproved fairness or completeness premise.
+The relational search results, generic executable soundness/completeness, solver
+independence theorems, and structural solver instance are closed under the global
+context: `Print Assumptions` reports no axiom dependencies. In particular, choosing
+the structural solver does not introduce proof irrelevance or functional
+extensionality into the main runner equivalence theorem.
 
-Compilation checks the proof terms, and `coqchk` independently checks all registered compiled modules.
-The executable tests check parser/display and integration behavior in addition to the extracted functions.
-They do not replace the universal proofs.
-Extraction, OCaml compilation and runtime, and the handwritten parser/printer remain outside the kernel's verification of the source theorems.
-The checked entry point validates source requests; low-level extracted functions still have erased preconditions, and raw runtime checkpoints are not accepted by the public source interface.
+The optional reference executable unifier still has its existing proof
+irrelevance and dependent functional extensionality dependencies. Answer
+projection's specification against `ApplySub` still uses the existing dependent
+functional extensionality assumption from total substitution application.
+These are separate from the solver-independent search guarantees.
 
-
-## Structural-unifier equivalence
-
-The indexed replacement is specified and proved separately from the existing
-list-based executable unifier. `Correctness/StructuralUnification.v` interprets
-an accumulator through the valuations that factor through its substitution.
-The proof of `amgu_correct` mirrors the nested recursion on scope and first
-term. Single-variable factorization handles an empty accumulator; interpreting
-a nonempty accumulator as one elimination followed by its tail reduces
-postponement to the smaller scope's induction hypothesis. Pair processing
-intersects the first and second component constraints in sequence. Occurs
-failure is justified by a strict ground-value size inequality for a
-non-variable term containing the variable.
-
-`Correctness/StructuralUnificationBridge.v` relates these valuations to the
-original `Unify` relation after erasing indexed terms. Both computations then
-represent exactly the input substitution models satisfying the equality.
-To obtain explicit success/failure agreement as well, the proof establishes
-that every successful output has some ground model: residual-variable
-assignment for ALists, and constructive finite normalization/grounding for
-closed acyclic binding lists. Thus a successful output cannot masquerade as
-an empty solution set.
-
-`structural_Unify_equivalence` combines original outcome uniqueness,
-success/failure agreement and pointwise equality of represented ground
-solutions. Structural indexing is proved sound and complete for original
-runtime terms closed at depth zero and a finite variable bound, extending
-the result beyond inputs already written with indexed constructors. The
-theorem does not identify substitution representations syntactically.
-See [the structural-unification guide](structural-unification.md) for the
-precise scope, theorem names, examples and remaining integration work.
+Compilation checks proof terms, and `coqchk` independently checks all registered
+compiled modules. Executable tests check parser/display and integration behavior
+in addition to the extracted functions; they do not replace the universal proofs.
+Extraction, OCaml compilation and runtime, and the handwritten parser/printer
+remain outside the kernel's verification of the source theorems. The checked
+entry point validates source requests; low-level extracted functions still have
+erased preconditions, and raw runtime checkpoints are not accepted by the public
+source interface.

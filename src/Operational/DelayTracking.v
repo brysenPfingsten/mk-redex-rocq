@@ -5,6 +5,10 @@ From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 
 (** Marked occurrences and the active path. *)
 
@@ -584,3 +588,5 @@ Proof.
     + right. exists marked, e2. repeat split; try assumption.
       * constructor.
 Qed.
+
+End WithSolver.

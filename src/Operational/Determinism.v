@@ -1,9 +1,13 @@
+Require Import MkRedex.Operational.Reduction.
 From Stdlib Require Import List Arith.
 From MkRedex.Language Require Import Terms Substitution Goals Environments Trees.
 Import ListNotations.
 Set Default Goal Selector "!".
 
-Require Import MkRedex.Operational.Reduction.
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 
 (* ================================================================== *)
 (*  Plug shape lemmas                                                 *)
@@ -286,3 +290,5 @@ Proof.
     injection Hplug2 as _ Heq.
     eapply ctx_not_promoteR; eassumption.
 Qed.
+
+End WithSolver.

@@ -5,6 +5,10 @@ From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay D
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 
 Lemma contextual_conjunction_answer_shell_left : forall G ans E s m g,
   closed_env G -> disj_only_ctx E ->
@@ -479,3 +483,5 @@ Proof.
   apply (proj2 (tracked_finish_iff_eventually_active G marked)).
   exact (eventually_active G marked Henv Hok).
 Qed.
+
+End WithSolver.

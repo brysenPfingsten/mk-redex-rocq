@@ -3,6 +3,7 @@
 This repository formalizes a fine-grained miniKanren search machine and proves that its executable implementation finds exactly the solutions of an independent source-level semantics. 
 The reduction semantics is the main specification: search trees record which disjunction branch is selected, where execution is delayed, and which conjunctions are waiting for an answer.
 The extracted OCaml runner computes these same steps.
+The machine is parameterized by a correct deterministic unifier; its search behavior is independent of substitution representation.
 
 The language has equality by unification with an occurs check, conjunction, disjunction, fresh variables, and recursive relations.
 Terms include symbols, strings, natural numbers, Booleans, the empty list, and pairs. 
@@ -15,7 +16,8 @@ Disequality, negation, cuts, and constraint stores beyond substitutions are not 
 | Determinism | `step_deterministic`: an expression has at most one next expression. [Operational/Determinism.v](src/Operational/Determinism.v) |
 | Machine safety | `progress`, `step_ok`, and `multi_ok`: valid expressions are terminal or can step, and execution preserves the runtime invariant. [Operational/WellFormed.v](src/Operational/WellFormed.v) |
 | Scheduling | `global_no_stranding`: a chosen delay occurrence is released after finitely many steps in a valid execution. [Operational/DelayFairness.v](src/Operational/DelayFairness.v) |
-| Unification | `unification_correct` packages a unique specified outcome, exact failure detection, and a most general extension on success; `unify_fn_correct` establishes the same contract for execution. [Proof explanation](docs/proofs.md#a-single-solver-correctness-contract) |
+| Unification | `Solver` requires deterministic outcomes, exact preservation of compatible ground solutions, and scoped acyclic results. The default implementation uses structurally recursive indexed unification. [Solver contract](src/Language/Solver.v), [implementations](src/Execution/Solvers.v) |
+| Solver independence | `ordered_answers_solver_independent` preserves answer order and multiplicity at every step budget. `execute_solver_independent` also preserves executed step counts and trace structure, comparing substitutions by their meaning. [Correspondence](src/Correctness/SolverIndependence.v) |
 | Search soundness | `search_soundness`: every ground assignment represented by an observed answer satisfies the original goal on the query variables. [Correctness/Soundness.v](src/Correctness/Soundness.v) |
 | Search completeness | `source_search_completeness`: every source solution is represented by an answer in some finite execution prefix. [Correctness/Completeness.v](src/Correctness/Completeness.v) |
 | Executable correspondence | `next_step_spec`, `run_steps_exact`, and `multi_run_steps`: executable steps agree with reduction, and every finite reduction endpoint can be reproduced with enough fuel. [Execution](src/Execution) |
@@ -30,6 +32,7 @@ Answers are symbolic substitutions and can represent infinitely many ground assi
 Projection hides internal fresh variables.
 The denotation is a set of ground solutions; it does not prescribe answer order or multiplicity.
 Those are operational properties of the reduction semantics and its traces.
+The solver-independence theorem preserves them across correct solver implementations: corresponding symbolic answers have the same meaning, although their binding lists or free variable representatives can differ.
 
 ## Build and verify
 
@@ -127,18 +130,22 @@ Start with `Language/Terms.v`, `Goals.v`, and `Trees.v`, then `Operational/Reduc
 The [architecture guide](docs/architecture.md) explains the module boundaries and dependencies.
 The [proof guide](docs/proofs.md) explains the major proofs in natural language, including their invariants, induction measures, and difficult cases.
 
-The McBride-style replacement unifier is implemented in
+The default solver uses the McBride-style algorithm in
 `Execution/StructuralUnifier.v`, with scope-indexed terms and ordinary nested
-structural recursion. It is currently separate from the live search machine;
-its ground-solution equivalence to the inductive `Unify` relation is proved,
-while symbolic factorization and runtime integration remain to be completed. See the
-[implementation guide](docs/structural-unification.md) for the new API,
-computational examples, and precise verification status.
+structural recursion. It is integrated through `Execution/Solvers.v` and the
+semantic contract in `Language/Solver.v`. The proof guide explains conversion,
+runtime safety, and the solver-independence argument. The [structural unification guide](docs/structural-unification.md) describes the indexed algorithm and its runtime adapter.
+
+Rocq clients can import `MkRedex.Execution.DefaultSolver` to select this instance,
+or supply a solver explicitly to the generic definitions. The public OCaml
+`next_step`, `run_steps`, and `checked_run` entry points retain their existing
+signatures; the CLI and `Frontend.run` interface are unchanged.
 
 ## Scope and trust
 
-The source-level soundness and completeness theorems have no axiom dependencies.
-Executable correctness uses the existing proof irrelevance and dependent functional extensionality assumptions needed by executable unification.
+The generic source and executable soundness/completeness theorems, structural unifier, and solver-independence theorems have no axiom dependencies.
+The reference executable unifier retains its existing proof irrelevance and dependent functional extensionality dependencies.
+The answer-projection theorem still uses dependent functional extensionality from the existing substitution-application development.
 There are no admitted proofs or project-defined axioms.
 
 The semantic validator, stepper, status classification, trace collection, and answer projection are extracted from Rocq.

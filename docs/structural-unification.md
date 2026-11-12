@@ -4,13 +4,13 @@
 of Conor McBride, *First-order unification by structural recursion*, JFP
 13(6), 2003, [DOI](https://doi.org/10.1017/S0956796803004957).
 
-The algorithm and its ground-solution correctness proof are implemented.
-`Correctness/StructuralUnificationBridge.v` proves success/failure agreement
-and equality of represented ground solutions with the original inductive
-`Unify` relation. Symbolic MGU factorization and runtime integration remain
-separate work. The existing runtime still uses `Execution/Unifier.v`; its
-exact substitution-list graph theorem is not a theorem about the new AList
-representation. No existing correctness theorem has been weakened or admitted.
+The algorithm is now the default unifier used by the search executable.
+`Language/Solver.v` specifies its required behavior in terms of ground solutions,
+runtime scope, acyclicity, and deterministic outcomes. The machine does not
+require its binding lists to match the reference algorithm's representation.
+`Execution/Solvers.v` certifies both implementations against that contract, and
+`Correctness/SolverIndependence.v` proves that they preserve ordered search
+behavior at every reduction-step budget.
 
 ## Data and API
 
@@ -70,8 +70,7 @@ The empty-scope case cannot contain a variable. `fin0_elim`, `fin_view`, and
 `acc_view` use explicit dependent return clauses to expose the necessary
 indices. No equality casts, dependent destruction, proof irrelevance,
 functional extensionality, well-founded recursion, or guard-checking overrides
-are used. Function-valued substitutions will be reasoned about pointwise
-in the correctness proofs.
+are used. The correctness proofs reason about function-valued substitutions pointwise.
 
 ## Correctness and equivalence
 
@@ -113,11 +112,33 @@ collects their ground interpretations. This uses neither an executable
 well-founded application function nor a choice axiom.
 
 The equivalence compares represented solutions; it does not equate a
-renumbering AList with a literal binding list. No conversion of a returned
-AList into the original algorithm's exact output list has been claimed.
-The proof also does not yet supply the paper's symbolic factorization theorem
-against all function-valued candidate substitutions. That theorem and wiring
-the indexed representation into the runtime remain the next integration work.
+renumbering AList with a literal binding list. The original algorithm's exact
+output list is deliberately outside the new machine contract. A separate
+symbolic factorization theorem against all function-valued candidate
+substitutions has not been developed; the machine uses the exact ground-model
+contract instead.
+
+## Connection to runtime states
+
+`Correctness/StructuralAdapter.v` supplies `solve_state`, which accepts the
+existing allocation counter, binding list, and two runtime terms. Its outer
+option distinguishes conversion rejection from a legitimate unification
+failure. On valid runtime inputs conversion cannot reject. It builds an indexed
+accumulator from the visible bindings, runs `amgu`, and decodes the result with
+original IDs restored. Duplicate shadowed bindings are interpreted by lookup,
+so they do not add unintended constraints.
+
+The adapter's semantic theorem establishes failure agreement and equality of
+ground models with the reference outcome. `Correctness/StructuralSafety.v`
+proves that decoded results stay within the original counter and remain
+acyclic. `Execution/Solvers.v` combines those properties into `structural_solver`.
+The generic machine uses its certified `solver_fn`, and `DefaultSolver.v`
+selects this implementation for public extraction.
+
+The representation conversion currently rebuilds the accumulator for each
+unification call. No performance improvement is claimed without measurements.
+The search runner still accepts a reduction-step budget: internal structural
+termination of unification does not make recursive source search terminate.
 
 ## Verification
 
@@ -128,9 +149,16 @@ constructor clashes, postponement, renumbering and composition. The separate
 to transfer indexed computations into the original `Unify` relation for an
 occurs failure, a constructor clash and a renumbering success.
 
-`Print Assumptions` on `amgu`, `mgu`, `amgu_correct`, `mgu_correct`,
-`structural_Unify_equivalence`, and its failure/success corollaries reports
-`Closed under the global context`. The project build and independent
-`coqchk` audit register all these modules. The live runner's existing tests
-continue to exercise the existing runtime; they do not claim that runtime
-integration of the new algorithm is complete.
+`Examples/SolverExamples.v` additionally checks runtime conversion, scope
+rejection, existing aliases, shadowing, and failure under an existing binding.
+It specializes the ordered-answer correspondence to the reference and
+structural implementations.
+
+`Print Assumptions` reports `Closed under the global context` for the algorithm,
+its ground correctness proofs, the structural solver instance, and the core
+search correspondence theorems. The full build and `coqchk` audit register these
+modules. The executable, checked-interface, representative-relation, and CLI
+tests exercise the structural implementation through the public entry points.
+The answer-projection theorem retains the existing functional-extensionality
+dependency of substitution application; see [the proof guide](proofs.md) for
+precise trust boundaries.

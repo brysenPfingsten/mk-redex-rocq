@@ -4,6 +4,10 @@ From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 (** [compose_ctx outer inner] puts [inner] in the hole of [outer]. *)
 Fixpoint compose_ctx (outer inner : ctx) : ctx :=
   match outer with
@@ -577,3 +581,5 @@ Proof.
   - rewrite plug_compose. exact Hselected.
   - apply active_delay_eventually_scheduled.
 Qed.
+
+End WithSolver.

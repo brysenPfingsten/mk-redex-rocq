@@ -1,4 +1,4 @@
-.PHONY: all proofs generate test audit check
+.PHONY: all proofs generate test audit check benchmark-generate benchmark
 
 # Audit every registered module, including modules not imported by the runner.
 COQ_LIBRARIES = $(subst /,.,$(patsubst src/%.v,MkRedex.%,$(filter src/%.v,$(shell cat ../_CoqProject))))
@@ -40,3 +40,26 @@ audit: proofs
 	cd .. && coqchk -silent -R src MkRedex $(COQ_LIBRARIES)
 
 check: audit test
+
+# Benchmarks are opt-in and do not lengthen the ordinary correctness checks.
+benchmark-generate: proofs
+	cd .. && rocq c -Q src MkRedex extract/BenchmarkExtract.v
+
+benchmark_search.cmi: benchmark-generate
+	ocamlc -c benchmark_search.mli
+benchmark_search.cmo: benchmark_search.cmi
+	ocamlc -c benchmark_search.ml
+benchmark-bytecode: benchmark_search.cmo benchmark.ml
+	ocamlc -I +unix unix.cma benchmark_search.cmo benchmark.ml -o benchmark-bytecode
+benchmark_search.cmx: benchmark_search.cmi
+	ocamlopt -c benchmark_search.ml
+benchmark-native: benchmark_search.cmx benchmark.ml
+	ocamlopt -I +unix unix.cmxa benchmark_search.cmx benchmark.ml -o benchmark-native
+
+unifier-benchmark-bytecode: benchmark_search.cmo unifier_benchmark.ml
+	ocamlc -I +unix unix.cma benchmark_search.cmo unifier_benchmark.ml -o unifier-benchmark-bytecode
+unifier-benchmark-native: benchmark_search.cmx unifier_benchmark.ml
+	ocamlopt -I +unix unix.cmxa benchmark_search.cmx unifier_benchmark.ml -o unifier-benchmark-native
+
+benchmark: benchmark-bytecode
+	./benchmark-bytecode

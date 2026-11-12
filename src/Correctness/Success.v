@@ -5,6 +5,10 @@ From MkRedex.Correctness Require Import Focus.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 Fixpoint ctx_goals (E : ctx) : list goal :=
   match E with
   | chole => []
@@ -147,3 +151,5 @@ Proof.
   - exists (ans++[s],t). split; [eapply multi_step; [apply S_promoteR|constructor]|].
     unfold observed_answers; simpl. apply in_or_app. left. apply in_or_app. right. left. reflexivity.
 Qed.
+
+End WithSolver.

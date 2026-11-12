@@ -1,0 +1,13 @@
+Date: 2026-11-11
+CPU: AMD Ryzen 7 5800X
+Pinned logical CPU: 2
+OCaml: 5.4.1
+OS: Linux-6.18.37-x86_64-with-glibc2.44
+Source state: uncommitted solver-generalization working tree
+Source SHA-256: 63eb581c49640d12a183799a9815da2d8d1463ed0c6d3fbf1f8d90d6ff93a581
+Samples: 7 per solver/case/backend
+Target CPU seconds per sample: 0.03
+Repetition cap: 100000
+Preparation, conversion, projection, validation, and search scheduling excluded from timing.
+Native accumulators retained between equations within each batch.
+Both backends use default compiler flags; machine not isolated.

@@ -7,6 +7,10 @@ From MkRedex.Execution Require Import Executable.
 Import ListNotations.
 Set Default Goal Selector "!".
 
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
+
 (** A valuation solves the work remaining in a tree. Conjunction uses the
     same valuation for its suspended continuation and for its left subtree. *)
 Fixpoint tree_meaning (G : env) (rho : valuation) (t : tree) : Prop :=
@@ -40,12 +44,12 @@ Proof.
   intros G t t' rho Henv Htight Hacyc Hhead.
   destruct Hhead; simpl in *; intro Hmeaning;
     try tauto.
-  - destruct Hmeaning as [Hmodel Hsucc]. split.
-    + eapply Unify_ground_old_bindings; eassumption.
-    + destruct Htight as [[Ht Hu] Hsub].
-      destruct (Unify_ground_sound (st_cnt s) (st_sub s) t1 t2 s' rho
-        Hacyc Ht H Hmodel) as [v [Hv1 Hv2]].
-      eapply Sat_unify; eassumption.
+  - destruct Hmeaning as [Hmodel Hsucc].
+    destruct Htight as [[Ht Hu] Hsub].
+    apply (proj1 (solve_models (st_cnt s) t1 t2 (st_sub s) _
+      (conj Hacyc (conj Hsub (conj Ht Hu))) H rho)) in Hmodel.
+    destruct Hmodel as [Hinitial [v [Et Eu]]]. split; [exact Hinitial|].
+    eapply Sat_unify; eassumption.
   - destruct Hmeaning as [[Hm Ha] | [Hm Hb]]; split; try exact Hm.
     + apply Sat_disj_left. exact Ha.
     + apply Sat_disj_right. exact Hb.
@@ -149,3 +153,5 @@ Proof.
   intros G Henv query fuel g s Hok answer rho Hin Hrepr.
   eapply search_soundness; [exact Henv|exact Hok|apply run_steps_multi|exact Hin|exact Hrepr].
 Qed.
+
+End WithSolver.

@@ -1,9 +1,12 @@
-From MkRedex.Execution Require Import Unifier.
 From MkRedex.Language Require Import Scoping ScopedUnification Terms Substitution Goals Environments Trees.
 From Stdlib Require Import List Arith.
 From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.
 Set Default Goal Selector "!".
+
+From MkRedex.Language Require Import Solver.
+Section WithSolver.
+Context `{solver : Solver}.
 
 (** Executable small-step search on well-formed inputs.
 
@@ -21,7 +24,7 @@ Set Default Goal Selector "!".
     finite fuel budget, using preservation between iterations. *)
 
 (** One executable head rewrite.  The well-formedness witness supplies the
-    invariants needed by [unify_fn]; it is erased from extracted code. *)
+    invariants needed by [solver_fn]; it is erased from extracted code. *)
 Definition head_fn (G : env) (r : tree)
   (Hok : ok_expr G ([], r)) : option tree.
 Proof.
@@ -31,7 +34,7 @@ Proof.
     + exact None.
     + destruct Hok as [_ [Htight [_ Hacyclic]]].
       simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
-      destruct (unify_fn t1 t2 (st_sub s) (st_cnt s)
+      destruct (solver_fn t1 t2 (st_sub s) (st_cnt s)
         Hacyclic Hsub Ht1 Ht2) as [sub'|].
       * exact (Some (tgoal gsucc (mkstate sub' (st_cnt s)))).
       * exact (Some tfail).
@@ -85,14 +88,14 @@ Proof.
       try (inversion Hresult; subst; constructor).
     destruct Hok as [_ [Htight [_ Hacyclic]]].
     simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
-    destruct (unify_fn t1 t2 (st_sub s) (st_cnt s)
+    destruct (solver_fn t1 t2 (st_sub s) (st_cnt s)
       Hacyclic Hsub Ht1 Ht2) as [sub'|] eqn:Huni;
       inversion Hresult; subst.
     + apply H_unify_ok.
-      apply (proj2 (unify_fn_spec (st_cnt s) (st_sub s) t1 t2
+      apply (proj2 (solver_fn_spec (st_cnt s) (st_sub s) t1 t2
         Hacyclic Hsub Ht1 Ht2 (Some sub'))). exact Huni.
     + apply H_unify_fail.
-      apply (proj2 (unify_fn_spec (st_cnt s) (st_sub s) t1 t2
+      apply (proj2 (solver_fn_spec (st_cnt s) (st_sub s) t1 t2
         Hacyclic Hsub Ht1 Ht2 None)). exact Huni.
   - destruct (nth_error G rel) as [[arity def]|] eqn:Hlookup;
       simpl in Hresult; try discriminate.
@@ -123,11 +126,11 @@ Proof.
   destruct Hhead; simpl; try reflexivity.
   - destruct Hok as [_ [Htight [_ Hacyclic]]].
     simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
-    simpl. rewrite (proj1 (unify_fn_spec (st_cnt s) (st_sub s)
+    simpl. rewrite (proj1 (solver_fn_spec (st_cnt s) (st_sub s)
       t1 t2 Hacyclic Hsub Ht1 Ht2 (Some s')) H). reflexivity.
   - destruct Hok as [_ [Htight [_ Hacyclic]]].
     simpl in Htight. destruct Htight as [[Ht1 Ht2] Hsub].
-    simpl. rewrite (proj1 (unify_fn_spec (st_cnt s) (st_sub s)
+    simpl. rewrite (proj1 (solver_fn_spec (st_cnt s) (st_sub s)
       t1 t2 Hacyclic Hsub Ht1 Ht2 None) H). reflexivity.
   - now rewrite H.
 Qed.
@@ -405,3 +408,5 @@ Proof.
   eapply multi_observed_answers_prefix.
   apply run_steps_multi.
 Qed.
+
+End WithSolver.
