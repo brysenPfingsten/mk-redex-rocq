@@ -18,15 +18,19 @@ Disequality, negation, cuts, and constraint stores beyond substitutions are not 
 | Unification | `unification_correct` packages a unique specified outcome, exact failure detection, and a most general extension on success; `unify_fn_correct` establishes the same contract for execution. [Proof explanation](docs/proofs.md#a-single-solver-correctness-contract) |
 | Search soundness | `search_soundness`: every ground assignment represented by an observed answer satisfies the original goal on the query variables. [Correctness/Soundness.v](src/Correctness/Soundness.v) |
 | Search completeness | `source_search_completeness`: every source solution is represented by an answer in some finite execution prefix. [Correctness/Completeness.v](src/Correctness/Completeness.v) |
+| Main equivalence | `source_solution_iff_reduction_answer`: source solutions are exactly the answers reachable by `multi`, with no axiom dependencies. [Correctness/Completeness.v](src/Correctness/Completeness.v) |
+| Terminated search | `terminated_search_exhaustive`: every solution is represented in a final configuration; `terminated_search_finite_failure` rules out solutions when it has no answers. [Correctness/Completeness.v](src/Correctness/Completeness.v) |
 | Executable correspondence | `next_step_spec`, `run_steps_exact`, and `multi_run_steps`: executable steps agree with reduction, and every finite reduction endpoint can be reproduced with enough fuel. [Execution](src/Execution) |
 | Checked interface | Invalid source requests are rejected before execution; reports have certified completion status, traces, and substitution projection. [Execution/Interface.v](src/Execution/Interface.v) |
 
 The `ok_*` validity judgments are defined together in [Language/WellFormed.v](src/Language/WellFormed.v); their opening and bound lemmas are in [Language/WellFormedProperties.v](src/Language/WellFormedProperties.v).
 
-The combined theorem, `source_solution_iff_runner_answer`, says that a ground assignment on the original query variables satisfies the source goal if and only if some finite-fuel run observes an answer representing that assignment.
+The main theorem, `source_solution_iff_reduction_answer`, says that a ground assignment on the original query variables satisfies the source goal if and only if some finite reduction observes an answer representing that assignment. `source_solution_iff_runner_answer` transfers this result to finite-fuel execution.
 It assumes a closed relation environment, a correctly scoped source goal, and query IDs below the initial allocation counter.
 The initial substitution is empty.
 Search may be infinite: the theorem gives a finite prefix for each solution, not a bound for completing the entire search.
+`run_query_correct` covers the paper's `run` convention: `∃(x̄) G` starts at counter 0, allocates IDs `0 … k−1`, and projects answers on those IDs.
+When a run reports `complete`, `run_validated_complete_exhaustive` ensures that its final answers represent every solution.
 
 Answers are symbolic substitutions and can represent infinitely many ground assignments.
 Projection hides internal fresh variables.

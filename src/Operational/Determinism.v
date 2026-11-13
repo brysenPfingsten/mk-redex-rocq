@@ -278,3 +278,30 @@ Proof.
     injection Hplug2 as _ Heq.
     eapply ctx_not_promoteR; eassumption.
 Qed.
+
+Lemma value_no_step : forall G e e',
+  is_value e -> ~ step G e e'.
+Proof.
+  intros G [ans t] e' Hvalue Hstep.
+  destruct t; simpl in Hvalue; try contradiction.
+  - inversion Hstep; subst; simpl in *; try discriminate.
+    destruct E; simpl in *; try discriminate.
+    match goal with H : Head _ _ _ |- _ => inversion H; subst; discriminate end.
+  - destruct g; simpl in Hvalue; try contradiction.
+    inversion Hstep; subst; simpl in *; try discriminate.
+    destruct E; simpl in *; try discriminate.
+    match goal with H : Head _ _ _ |- _ => inversion H; subst; discriminate end.
+Qed.
+
+Lemma multi_linear : forall G e e1 e2,
+  multi G e e1 -> multi G e e2 ->
+  multi G e1 e2 \/ multi G e2 e1.
+Proof.
+  intros G e e1 e2 Hfirst. revert e2.
+  induction Hfirst; intros target Hsecond.
+  - left. exact Hsecond.
+  - inversion Hsecond as [|start next finish Hnext Htail]; subst.
+    + right. eapply multi_step; eassumption.
+    + assert (next = e2) by (eapply step_deterministic; eassumption).
+      subst next. apply IHHfirst. exact Htail.
+Qed.

@@ -1,5 +1,5 @@
 From Stdlib Require Import Arith.Wf_nat.
-From MkRedex.Operational Require Import DelayTracking Scheduling WellFormed Reduction Delay DelayFairness.
+From MkRedex.Operational Require Import DelayTracking Scheduling WellFormed Reduction Determinism Delay DelayFairness.
 From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Goals Substitution Environments Trees Terms.
 From Stdlib Require Import List Arith Lia.
 From MkRedex.Denotational Require Import Denotation Opening Valuations Derivations.
@@ -292,6 +292,123 @@ Proof.
   apply source_search_completeness; assumption.
 Qed.
 
+(** The main equivalence is about the paper's reduction relation. *)
+Theorem source_solution_iff_reduction_answer : forall G counter query g
+  (Henv : ok_env G) (Hclosed : ok_goal G 0 counter g)
+  (Hquery : Forall (fun x => x < counter) query) rho,
+  solution G query g rho <->
+  exists e answer,
+    multi G (initial_expr counter g) e /\
+    In answer (observed_answers e) /\ represents query answer rho.
+Proof.
+  intros G counter query g Henv Hclosed Hquery rho. split.
+  - apply (source_search_completeness G counter query g Henv Hclosed Hquery).
+  - intros [e [answer [Hrun [Hin Hrepr]]]].
+    eapply search_soundness; [exact Henv|apply initial_expr_ok; exact Hclosed|exact Hrun|exact Hin|exact Hrepr].
+Qed.
+
+(** Once search terminates, every finite answer-producing prefix lies before
+    the final configuration. Thus its observed answers cover all solutions. *)
+Theorem terminated_search_exhaustive : forall G counter query g final,
+  ok_env G -> ok_goal G 0 counter g ->
+  Forall (fun x => x < counter) query ->
+  multi G (initial_expr counter g) final -> is_value final ->
+  forall rho, solution G query g rho ->
+    exists answer, In answer (observed_answers final) /\ represents query answer rho.
+Proof.
+  intros G counter query g final Henv Hclosed Hquery Hfinal Hvalue rho Hsolution.
+  destruct (proj1 (source_solution_iff_reduction_answer G counter query g
+    Henv Hclosed Hquery rho) Hsolution)
+    as [e [answer [Hrun [Hin Hrepr]]]].
+  exists answer. split; [|exact Hrepr].
+  destruct (multi_linear G (initial_expr counter g) final e Hfinal Hrun)
+    as [Hafter|Hbefore].
+  - inversion Hafter; subst; [exact Hin|].
+    exfalso. eapply value_no_step; eassumption.
+  - destruct (multi_observed_answers_prefix G e final Hbefore) as [added Hadd].
+    rewrite Hadd. apply in_or_app. left. exact Hin.
+Qed.
+
+Corollary terminated_search_finite_failure : forall G counter query g final,
+  ok_env G -> ok_goal G 0 counter g ->
+  Forall (fun x => x < counter) query ->
+  multi G (initial_expr counter g) final -> is_value final ->
+  observed_answers final = [] ->
+  forall rho, ~ solution G query g rho.
+Proof.
+  intros G counter query g final Henv Hclosed Hquery Hrun Hvalue Hempty rho Hsolution.
+  destruct (terminated_search_exhaustive G counter query g final
+    Henv Hclosed Hquery Hrun Hvalue rho Hsolution) as [answer [Hin _]].
+  rewrite Hempty in Hin. contradiction.
+Qed.
+
+(** The paper's [run] query starts before its existential variables are
+    allocated. The variables 0,...,k-1 are allocated by the first fresh step
+    and are the variables projected from its answers. *)
+Theorem run_query_correct : forall G k body rho,
+  ok_env G -> ok_goal G 0 0 (gfresh k body) ->
+  solution G (seq 0 k) (open (map tvar (seq 0 k)) body) rho <->
+  exists e answer,
+    multi G (initial_expr 0 (gfresh k body)) e /\
+    In answer (observed_answers e) /\
+    represents (seq 0 k) answer rho.
+Proof.
+  intros G k body rho Henv Hclosed.
+  set (opened := open (map tvar (seq 0 k)) body).
+  assert (Hopened : ok_goal G 0 k opened).
+  { unfold opened. apply open_ok.
+    - simpl in Hclosed. rewrite length_map, length_seq.
+      apply (ok_goal_mono G k k 0 k body); lia || exact Hclosed.
+    - change (Forall (ok_term 0 (0 + k)) (map tvar (seq 0 k))).
+      apply fresh_args_ok. lia. }
+  assert (Hquery : Forall (fun x => x < k) (seq 0 k)).
+  { apply Forall_forall. intros x Hin. apply in_seq in Hin. lia. }
+  assert (Hfresh : step G (initial_expr 0 (gfresh k body)) (initial_expr k opened)).
+  { unfold initial_expr, opened. simpl. replace (0 + k) with k by lia.
+    apply S_ctx with (E := chole). apply H_fresh. }
+  split.
+  - intro Hsolution.
+    destruct (proj1 (source_solution_iff_reduction_answer G k (seq 0 k) opened
+      Henv Hopened Hquery rho) Hsolution) as [e [answer [Hrun [Hin Hrepr]]]].
+    exists e, answer. split; [eapply multi_step; eassumption|].
+    split; assumption.
+  - intros [e [answer [Hrun [Hin Hrepr]]]].
+    inversion Hrun as [|start next finish Hstep Htail]; subst.
+    + simpl in Hin. contradiction.
+    + assert (next = initial_expr k opened)
+        by (eapply step_deterministic; eassumption).
+      subst next.
+      apply (proj2 (source_solution_iff_reduction_answer G k (seq 0 k) opened
+        Henv Hopened Hquery rho)).
+      exists e, answer. split; [exact Htail|]. split; assumption.
+Qed.
+
+Corollary run_query_satisfiable : forall G k body,
+  ok_env G -> ok_goal G 0 0 (gfresh k body) ->
+  (exists rho, satisfies G rho [] (gfresh k body)) <->
+  exists rho e answer,
+    multi G (initial_expr 0 (gfresh k body)) e /\
+    In answer (observed_answers e) /\
+    represents (seq 0 k) answer rho.
+Proof.
+  intros G k body Henv Hclosed. split.
+  - intros [rho Hsat].
+    assert (Hsolution : solution G [] (gfresh k body) rho).
+    { exists rho. split; [apply agrees_on_refl|exact Hsat]. }
+    destruct (proj1 (source_solution_iff_reduction_answer G 0 [] (gfresh k body)
+      Henv Hclosed (Forall_nil _) rho) Hsolution)
+      as [e [answer [Hrun [Hin [sigma [_ Hmodel]]]]]].
+    exists sigma, e, answer. split; [exact Hrun|]. split; [exact Hin|].
+    exists sigma. split; [apply agrees_on_refl|exact Hmodel].
+  - intros [rho [e [answer [Hrun [Hin [sigma [_ Hmodel]]]]]]].
+    assert (Hsolution : solution G [] (gfresh k body) sigma).
+    { apply (proj2 (source_solution_iff_reduction_answer G 0 [] (gfresh k body)
+        Henv Hclosed (Forall_nil _) sigma)).
+      exists e, answer. split; [exact Hrun|]. split; [exact Hin|].
+      exists sigma. split; [apply agrees_on_refl|exact Hmodel]. }
+    destruct Hsolution as [witness [_ Hsat]]. exists witness. exact Hsat.
+Qed.
+
 (** The executable finds exactly the ground source solutions, with answers
     compared only on the original, already allocated query variables. *)
 Theorem source_solution_iff_runner_answer : forall G Henv counter query g
@@ -304,7 +421,14 @@ Theorem source_solution_iff_runner_answer : forall G Henv counter query g
     represents query answer rho.
 Proof.
   intros G Henv counter query g Hclosed Hquery rho. split.
-  - apply (executable_search_completeness G Henv counter query g Hclosed Hquery).
+  - intro Hsolution.
+    destruct (proj1 (source_solution_iff_reduction_answer G counter query g Henv Hclosed Hquery rho)
+      Hsolution) as [e [answer [Hrun [Hin Hrepr]]]].
+    destruct (multi_run_steps G _ e Hrun Henv (initial_expr_ok G counter g Hclosed))
+      as [fuel Heq].
+    exists fuel, answer. rewrite Heq. split; assumption.
   - intros [fuel [answer [Hin Hrepr]]].
-    eapply executable_search_soundness; eassumption.
+    apply (proj2 (source_solution_iff_reduction_answer G counter query g Henv Hclosed Hquery rho)).
+    exists (run_steps G Henv fuel (initial_expr counter g) (initial_expr_ok G counter g Hclosed)), answer.
+    split; [apply run_steps_multi|]. split; assumption.
 Qed.

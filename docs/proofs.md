@@ -23,9 +23,13 @@ Goal satisfaction is inductive.
 In particular, a recursive call is justified by a finite derivation for its body.
 A relation that only calls itself has no solutions; a recursive relation with a base clause can have solutions with finite proofs even when its search is infinite.
 
-The final theorem, `source_solution_iff_runner_answer`, is in [Correctness/Completeness.v](../src/Correctness/Completeness.v). 
+The main theorem, `source_solution_iff_reduction_answer`, is in [Correctness/Completeness.v](../src/Correctness/Completeness.v).
 Fix a closed environment, a source goal scoped at the initial counter, and original query IDs below that counter.
-Starting with an empty substitution, a ground assignment on those IDs satisfies the source goal exactly when some finite fuel budget produces an observed answer representing that assignment.
+Starting with an empty substitution, a ground assignment on those IDs satisfies the source goal exactly when some finite reduction produces an observed answer representing that assignment. `source_solution_iff_runner_answer` is its executable corollary.
+
+`run_query_correct` specializes the paper's `run` convention: the query `∃(x̄) G` starts at counter 0, then the fresh step allocates query IDs `0 … k−1`. It relates answers of that run to solutions of the opened body with those query IDs. `run_query_satisfiable` states the corresponding existential satisfiability result.
+
+`value_no_step` and `multi_linear` show that any answer-producing finite prefix lies before a final configuration. `terminated_search_exhaustive` therefore covers every source solution with an answer in that configuration; `terminated_search_finite_failure` gives the empty-answer case. `run_validated_complete_exhaustive` connects the checked interface's `Complete` status to this guarantee.
 
 Representation means that the answer substitution can be satisfied by a valuation agreeing with the proposed assignment on the query IDs.
 Other IDs are existentially hidden.
@@ -365,7 +369,7 @@ Soundness and completeness are transferred through its agreement with `run_steps
 
 ## Assumptions and verification boundaries
 
-The relational search soundness/completeness and ground unification results are closed under the global context: `Print Assumptions` reports no axiom dependencies.
+The relational equivalence, `run_query_correct`, terminated-search exhaustiveness, and ground unification results are closed under the global context: `Print Assumptions` reports no axiom dependencies.
 Executable results inherit proof irrelevance and dependent functional extensionality used in the executable unification development.
 Proof irrelevance identifies proofs of the same proposition; dependent functional extensionality identifies dependent functions with pointwise equal outputs.
 These assumptions concern proof infrastructure rather than adding an unproved fairness or completeness premise.

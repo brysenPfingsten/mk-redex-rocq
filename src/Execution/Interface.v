@@ -217,6 +217,23 @@ Proof.
   exists fuel,answer. rewrite run_validated_final. split; assumption.
 Qed.
 
+Theorem run_validated_complete_exhaustive : forall G counter query g Hv fuel capture,
+  report_completion (run_validated G counter query g Hv fuel capture) = Complete ->
+  forall rho, solution G query g rho -> exists answer,
+    In answer (observed_answers
+      (execution_final (report_execution (run_validated G counter query g Hv fuel capture)))) /\
+    represents query answer rho.
+Proof.
+  intros G counter query g Hv fuel capture Hcomplete rho Hsolution.
+  eapply terminated_search_exhaustive.
+  - exact (proj1 Hv).
+  - exact (proj1 (proj2 Hv)).
+  - exact (proj2 (proj2 Hv)).
+  - rewrite run_validated_final. apply run_steps_multi.
+  - apply (proj1 (run_validated_status G counter query g Hv fuel capture)). exact Hcomplete.
+  - exact Hsolution.
+Qed.
+
 Lemma execute_early_stop : forall G Henv capture fuel e Hok,
   execution_steps (execute G Henv capture fuel e Hok) < fuel ->
   is_value (execution_final (execute G Henv capture fuel e Hok)).

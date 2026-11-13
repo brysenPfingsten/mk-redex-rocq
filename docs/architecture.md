@@ -106,8 +106,10 @@ Completeness uses two auxiliary developments. `Focus.v` adapts occurrence
 fairness to arbitrary chosen work, preserving the conjunctions on its path.
 `Success.v` handles successful states: either expose an observed answer or
 start the next conjunction continuation. Neither changes the runtime rules.
-The final theorem in `Completeness.v`, `source_solution_iff_runner_answer`,
-combines soundness and completeness for finite-fuel execution.
+The main theorem in `Completeness.v`, `source_solution_iff_reduction_answer`,
+combines soundness and completeness for the reduction relation. The runner
+equivalence follows through execution correspondence. The same file proves
+the `run` convention and exhaustiveness of terminated search.
 
 ## Execution and external input
 
