@@ -185,21 +185,18 @@ Lemma step_ok : forall G e e',
 Proof.
   intros G e e' HcG Hoke Hstep.
   destruct Hstep.
-  - (* S_ctx: (ans, plug E r) --> (ans, plug E r') *)
-    destruct Hoke as [Htt Hfa].
+  - destruct Hoke as [Htt Hfa].
     split; simpl.
     + apply (plug_ok_tree_head G E r r' HcG Htt H).
       apply (Head_ok_tree G r r' HcG).
       * exact (plug_ok_tree_inv G E r Htt).
       * exact H.
     + exact Hfa.
-  - (* S_delay: (ans, tdelay t) --> (ans, t) *)
-    destruct Hoke as [Htt Hfa].
+  - destruct Hoke as [Htt Hfa].
     split; simpl in *.
     + exact Htt.
     + exact Hfa.
-  - (* S_promoteL: (ans, tdisjL (tgoal gsucc s) t) --> (ans ++ [s], t) *)
-    destruct Hoke as [Htt Hfa].
+  - destruct Hoke as [Htt Hfa].
     simpl in Htt.
     destruct Htt as [Hts Htt].
     split; simpl.
@@ -207,8 +204,7 @@ Proof.
     + rewrite Forall_app. split.
       * exact Hfa.
       * constructor; [exact (proj2 Hts) | constructor].
-  - (* S_promoteR: (ans, tdisjR t (tgoal gsucc s)) --> (ans ++ [s], t) *)
-    destruct Hoke as [Htt Hfa].
+  - destruct Hoke as [Htt Hfa].
     simpl in Htt.
     destruct Htt as [Htt Hts].
     split; simpl.

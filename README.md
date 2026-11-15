@@ -34,7 +34,7 @@ When a run reports `complete`, `run_validated_complete_exhaustive` ensures that 
 
 Answers are symbolic substitutions and can represent infinitely many ground assignments.
 Projection hides internal fresh variables.
-The denotation is a set of ground solutions; it does not prescribe answer order or multiplicity.
+The declarative semantics defines a set of ground solutions; it does not prescribe answer order or multiplicity.
 Those are operational properties of the reduction semantics and its traces.
 
 ## Build and verify
@@ -51,8 +51,6 @@ nix flake check -L
 Both commands build the proofs and executable, run independent `coqchk` auditing of every module registered in `_CoqProject`, and run the executable tests.
 The flake excludes local compiled artifacts, so existing `.vo` or OCaml object files cannot bypass source compilation.
 Checks run on the current platform; the flake declares Linux and Darwin on x86-64 and AArch64.
-
-```
 
 For interactive proof development or a local build:
 
@@ -122,7 +120,7 @@ The source is organized by responsibility:
 ```text
 src/Language/       syntax, substitution, scoping, relational unification
 src/Operational/    reduction, invariants, determinism, delay scheduling
-src/Denotational/   ground meaning, opening, valuations, finite derivations
+src/Declarative/   ground meaning, opening, valuations, finite derivations
 src/Correctness/    unification models, search soundness and completeness
 src/Execution/      executable functions, validation, reports and extraction API
 src/Examples/       syntax tests, semantic examples and standard relations

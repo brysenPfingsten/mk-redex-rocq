@@ -1,6 +1,6 @@
 From Stdlib Require Import List.
 From MkRedex.Language Require Import Terms Goals Environments Substitution Trees.
-From MkRedex.Denotational Require Import Denotation.
+From MkRedex.Declarative Require Import Declarative.
 From MkRedex.Operational Require Import Reduction.
 From MkRedex.Correctness Require Import Soundness.
 Import ListNotations.

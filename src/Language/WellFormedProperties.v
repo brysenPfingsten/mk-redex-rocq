@@ -47,10 +47,10 @@ Lemma open_goal_ok : forall G d c g args,
 Proof.
   intros G d c g. revert d c.
   induction g; intros d c args H1 H2; simpl in *.
-  - (*succ*) exact H1.
-  - (*unify*) destruct H1 as [Hct1 Hct2].
+  - exact H1.
+  - destruct H1 as [Hct1 Hct2].
     split; apply open_term_ok; assumption.
-  - (*relcall*) destruct (nth_error G n).
+  - destruct (nth_error G n).
     * destruct p as [n0 g0].
       destruct H1 as [Hlen Hforall].
       split.
@@ -62,13 +62,13 @@ Proof.
            ** exact H2.
         -- exact Hforall.
     * exact H1.
-  - (*disj*) destruct H1 as [Hg1 Hg2]. split.
+  - destruct H1 as [Hg1 Hg2]. split.
     * apply IHg1; assumption.
     * apply IHg2; assumption.
-  - (*conj*) destruct H1 as [Hg1 Hg2]. split.
+  - destruct H1 as [Hg1 Hg2]. split.
     * apply IHg1; assumption.
     * apply IHg2; assumption.
-  - (*fresh*) apply IHg.
+  - apply IHg.
     * rewrite Nat.add_assoc. exact H1.
     * eapply Forall_impl.
       + intros t Ht.

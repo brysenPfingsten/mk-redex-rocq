@@ -5,9 +5,6 @@ From MkRedex.Operational Require Import Reduction WellFormed Determinism Delay.
 Import ListNotations.
 Set Default Goal Selector "!".
 
-
-(** Marked occurrences and the active path. *)
-
 (** A proof-only tree with exactly one distinguished delay occurrence.
     Erasing the distinction gives the existing runtime tree.  The marker
     avoids confusing two syntactically equal delays in different branches. *)
@@ -100,8 +97,6 @@ Inductive marked_release (G : env) : marked_expr -> expr -> Prop :=
 Lemma marked_release_erases : forall G m e',
   marked_release G m e' -> G |= erase_marked m --> e'.
 Proof. intros G m e' Hrelease. destruct Hrelease. apply S_delay. Qed.
-
-(** One movement of the marked delay through the active path. *)
 Inductive marked_bubble (G : env) : marked_tree -> marked_tree -> Prop :=
   | bubble_conj : forall body g,
       marked_bubble G (mark_under_conj (mark_here body) g)
@@ -450,8 +445,6 @@ Proof.
     + rewrite <- Heq. exact (marked_carry_erases _ _ _ Hcarry).
     + exact (marked_release_erases _ _ _ Hrelease).
 Qed.
-
-(** Finite carrying traces and release. *)
 
 Inductive tracked_finish (G : env) : marked_expr -> expr -> Prop :=
   | tracked_release : forall m e',

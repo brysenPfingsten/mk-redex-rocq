@@ -5,7 +5,6 @@ Set Default Goal Selector "!".
 Require Import MkRedex.Language.Terms.
 Require Import MkRedex.Language.Substitution.
 
-(* UnifyW *)
 
 Inductive UnifyW : term -> term -> sub -> option sub -> Prop :=
 
@@ -79,7 +78,6 @@ Definition Unify (t1 t2 : term) (s : sub) (r : option sub) : Prop :=
 
 Hint Unfold Unify : core.
 
-(* Functionality *)
 
 Lemma UnifyW_functional : forall w1 w2 s r r',
   UnifyW w1 w2 s r -> UnifyW w1 w2 s r' -> r = r'.
@@ -90,8 +88,7 @@ Proof.
   try reflexivity; try congruence;
   try (exfalso; match goal with H : forall _ _, _ <> tcons _ _ |- _ => exact (H _ _ eq_refl) end);
   try (exfalso; match goal with H : forall _, tvar _ <> tvar _ |- _ => exact (H _ eq_refl) end).
-  - (* UW_cons_ok vs UW_cons_ok *)
-    match goal with
+  - match goal with
     | Hwa1 : Walk s a1 ?wa1, Hwa1' : Walk s a1 ?wa1',
       Hwb1 : Walk s b1 ?wb1, Hwb1' : Walk s b1 ?wb1',
       IH1 : forall r', UnifyW ?wa1 ?wb1 s r' -> Some s1 = r',
@@ -110,8 +107,7 @@ Proof.
       rewrite (Walk_functional s1 b2 _ _ Hwb2 Hwb2') in IH2
     end;
     eauto.
-  - (* UW_cons_ok vs UW_cons_fail *)
-    match goal with
+  - match goal with
     | Hwa1 : Walk s a1 ?wa1, Hwa1' : Walk s a1 ?wa1',
       Hwb1 : Walk s b1 ?wb1, Hwb1' : Walk s b1 ?wb1',
       IH1 : forall r', UnifyW ?wa1 ?wb1 s r' -> Some s1 = r',
@@ -121,8 +117,7 @@ Proof.
       rewrite (Walk_functional s b1 _ _ Hwb1 Hwb1') in IH1;
       apply IH1 in Huw1'; discriminate
     end.
-  - (* UW_cons_fail vs UW_cons_ok *)
-    match goal with
+  - match goal with
     | Hwa1 : Walk s a1 ?wa1, Hwa1' : Walk s a1 ?wa1',
       Hwb1 : Walk s b1 ?wb1, Hwb1' : Walk s b1 ?wb1',
       IH1 : forall r', UnifyW ?wa1 ?wb1 s r' -> None = r',
@@ -145,7 +140,6 @@ Proof.
   exact (UnifyW_functional _ _ _ _ _ Hu Hu').
 Qed.
 
-(* Structural Properties *)
 
 Lemma UnifyW_extends : forall w1 w2 s r,
   UnifyW w1 w2 s r ->
@@ -229,7 +223,6 @@ Proof.
   - exact Happ.
 Qed.
 
-(* Acyclicity Preservation *)
 
 Lemma occurs_trans_DeepOccurs : forall s x c t,
   occurs c t = true -> DeepOccurs s x (tvar c) -> DeepOccurs s x t.
@@ -333,7 +326,6 @@ Proof.
   exact (UnifyW_acyclic w1 w2 s s' Hacyclic Hu).
 Qed.
 
-(* Soundness *)
 
 Lemma UnifyW_sound_gen : forall w1 w2 s r,
   UnifyW w1 w2 s r ->
@@ -400,7 +392,6 @@ Proof.
   exact (UnifyW_sound w1 w2 s s' Hacyclic Hu r1 r2 HApp1 HApp2).
 Qed.
 
-(* Helpers for Completeness *)
 
 Lemma Walk_tvar_free : forall s t y,
   Walk s t (tvar y) -> lookup y s = None.
@@ -698,7 +689,6 @@ Proof.
     rewrite Heq in Hout. subst. exact Hwalk.
 Qed.
 
-(* Completeness and Most General Unifier *)
 
 (** A substitution [s] unifies [t1] and [t2] if it maps them to the same term. *)
 Definition unifier (s : sub) (t1 t2 : term) : Prop :=
@@ -953,8 +943,7 @@ Proof.
       + pose proof (DeepOccurs_tsize_model _ _ _ HDO' s2 Hmodel (tcons ra rb) Hy rb Hb) as Hts.
         simpl in Hts. lia.
       + exact (Hnotcons a b eq_refl).
-  - (* U_cons_ok *)
-    assert (Hunitcons : unifier s2 (tcons a1 a2) (tcons b1 b2)) by
+  - assert (Hunitcons : unifier s2 (tcons a1 a2) (tcons b1 b2)) by
       exact (unifier_walk_model s t1 t2 (tcons a1 a2) (tcons b1 b2)
                 s2 Hacacylic2 Hmodel Hw1 Hw2 Hunifier).
     destruct (unifier_cons_parts s2 a1 a2 b1 b2 Hacacylic2 Hunitcons)
@@ -970,8 +959,7 @@ Proof.
     assert (Hmodel1 : models_sub s2 s1) by
       exact (more_general_models s1 s2 Hac1 Hacacylic2 Hmg).
     exact (IHHunifyW2 Hac1 eq_refl a2 b2 H1 H2 s2 Hacacylic2 Hmodel1 Hunit2).
-  - (* UW_cons_fail: Walk s a1 wa1, Walk s b1 wb1, UnifyW wa1 wb1 s None *)
-    apply (IHHunifyW Hacacylic eq_refl a1 b1 H H0 s2 Hacacylic2 Hmodel).
+  - apply (IHHunifyW Hacacylic eq_refl a1 b1 H H0 s2 Hacacylic2 Hmodel).
     intros ra1 rb1 Ha1 Hb1.
     destruct (ApplySub_total s2 Hacacylic2 a2) as [ra2 Ha2].
     destruct (ApplySub_total s2 Hacacylic2 b2) as [rb2 Hb2].

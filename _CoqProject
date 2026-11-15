@@ -19,10 +19,10 @@ src/Operational/DelayFairness.v
 src/Execution/Unifier.v
 src/Execution/Executable.v
 src/Execution/RunnerCorrespondence.v
-src/Denotational/Denotation.v
-src/Denotational/Opening.v
-src/Denotational/Valuations.v
-src/Denotational/Derivations.v
+src/Declarative/Declarative.v
+src/Declarative/Opening.v
+src/Declarative/Valuations.v
+src/Declarative/Derivations.v
 src/Correctness/Unification.v
 src/Correctness/Soundness.v
 src/Correctness/Focus.v
@@ -30,7 +30,7 @@ src/Correctness/Success.v
 src/Correctness/Completeness.v
 src/Execution/Input.v
 src/Execution/Interface.v
-src/Examples/DenotationExamples.v
+src/Examples/DeclarativeExamples.v
 src/Examples/CompletenessExamples.v
 src/Examples/InputExamples.v
 src/Examples/Relations.v

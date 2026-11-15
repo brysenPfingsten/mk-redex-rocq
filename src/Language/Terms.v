@@ -19,8 +19,6 @@ Proof.
   decide equality; try apply Nat.eq_dec; try apply String.string_dec;
     try apply Bool.bool_dec.
 Defined.
-
-(** * term_eqb *)
 Fixpoint term_eqb (t1 t2 : term) : bool :=
   match t1, t2 with
   | tvar a, tvar b   => Nat.eqb a b
@@ -46,7 +44,8 @@ Proof.
   - rewrite IHt1, IHt2. reflexivity.
 Qed.
 
-(** https://www.chargueraud.org/research/2009/ln/main.pdf *)
+(* Parameter opening follows the locally nameless convention:
+   https://www.chargueraud.org/research/2009/ln/main.pdf *)
 Fixpoint open_term (d : nat) (args : list term) (t : term) : term :=
   match t with
   | tpar i =>
@@ -58,8 +57,6 @@ Fixpoint open_term (d : nat) (args : list term) (t : term) : term :=
   | tcons a b => tcons (open_term d args a) (open_term d args b)
   | _ => t
   end.
-
-(** * tsize *)
 Fixpoint tsize (t : term) : nat :=
   match t with
   | tcons a b => S (tsize a + tsize b)

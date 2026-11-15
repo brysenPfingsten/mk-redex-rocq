@@ -3,7 +3,7 @@ From MkRedex.Language Require Import Terms Goals Substitution Environments.
 Import ListNotations.
 Set Default Goal Selector "!".
 
-(** Ground values deliberately have neither logic variables nor parameters. *)
+(* Ground values have no logic variables or lexical parameters. *)
 Inductive ground : Type :=
 | gsym : string -> ground
 | gstr : string -> ground
@@ -14,7 +14,7 @@ Inductive ground : Type :=
 
 Definition valuation := nat -> ground.
 
-(** Missing lexical parameters are rejected rather than assigned a default. *)
+(* Evaluation fails when a parameter is out of scope. *)
 Fixpoint eval_term (rho : valuation) (beta : list ground) (t : term)
   : option ground :=
   match t with
@@ -43,9 +43,8 @@ Fixpoint eval_terms (rho : valuation) (beta : list ground) (ts : list term)
       end
   end.
 
-(** Finite derivations give recursive definitions their least interpretation.
-    Relation bodies receive a new parameter block; fresh extends the current
-    block. This definition mentions no runtime trees or scheduling. *)
+(* Satisfaction uses finite derivations for recursive calls. A relation call
+   replaces the parameter block; fresh variables extend the current block. *)
 Inductive satisfies (G : env) (rho : valuation) : list ground -> goal -> Prop :=
 | Sat_success : forall beta, satisfies G rho beta gsucc
 | Sat_unify : forall beta t u v,
@@ -70,15 +69,14 @@ Inductive satisfies (G : env) (rho : valuation) : list ground -> goal -> Prop :=
     satisfies G rho values body ->
     satisfies G rho beta (grelcall r args).
 
-(** A ground valuation solves every visible binding of the substitution.
-    Lookup, rather than list membership, matches operational shadowing. *)
+(* Lookup respects shadowed bindings in the operational substitution. *)
 Definition satisfies_sub (rho : valuation) (s : sub) : Prop :=
   forall x t, lookup x s = Some t -> eval_term rho [] t = Some (rho x).
 
 Definition agrees_on (query : list nat) (rho sigma : valuation) : Prop :=
   forall x, In x query -> rho x = sigma x.
 
-(** Existentially hide allocations outside the explicit original query. *)
+(* Variables outside the query are existentially hidden. *)
 Definition represents (query : list nat) (answer : state) (rho : valuation)
   : Prop :=
   exists sigma, agrees_on query sigma rho /\ satisfies_sub sigma (st_sub answer).
@@ -115,7 +113,7 @@ Proof.
     inversion H; subst. simpl. f_equal. apply IH. reflexivity.
 Qed.
 
-Lemma Walk_denotation : forall s t w,
+Lemma Walk_declarative : forall s t w,
   Walk s t w -> forall rho, satisfies_sub rho s ->
   eval_term rho [] t = eval_term rho [] w.
 Proof.
@@ -125,7 +123,7 @@ Proof.
   - reflexivity.
 Qed.
 
-Lemma ApplySub_denotation : forall s t u,
+Lemma ApplySub_declarative : forall s t u,
   ApplySub s t u -> forall rho, satisfies_sub rho s ->
   eval_term rho [] t = eval_term rho [] u.
 Proof.

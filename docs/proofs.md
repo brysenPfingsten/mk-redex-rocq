@@ -17,7 +17,7 @@ Disjunction nodes indicate the selected side, and a conjunction node contains a 
 A top-level success is terminal and is itself an observed answer, even when it has not been moved into the accumulated list.
 `observed_answers` includes both locations.
 
-The source denotation interprets terms as finite ground values.
+The declarative semantics interprets terms as finite ground values.
 A valuation assigns such a value to every logic-variable ID; a separate lexical list interprets parameters.
 Goal satisfaction is inductive.
 In particular, a recursive call is justified by a finite derivation for its body.
@@ -277,9 +277,9 @@ This is `search_soundness`; runner reachability gives executable soundness.
 A fixed valuation can satisfy `fresh x. x = 7` even if it currently assigns zero to the ID that the machine will allocate for `x`.
 Source satisfaction chooses an existential value, while allocation chooses an ID.
 Forward reasoning must therefore change valuation values for new IDs without changing old constraints or the original query.
-The checked counterexample in [Examples/DenotationExamples.v](../src/Examples/DenotationExamples.v) makes this failure of fixed-valuation simulation explicit.
+The checked counterexample in [Examples/DeclarativeExamples.v](../src/Examples/DeclarativeExamples.v) makes this failure of fixed-valuation simulation explicit.
 
-[Denotational/Valuations.v](../src/Denotational/Valuations.v) proves that scoped goals and closed substitutions depend only on values below their counter.
+[Declarative/Valuations.v](../src/Declarative/Valuations.v) proves that scoped goals and closed substitutions depend only on values below their counter.
 `extend_valuation` writes the existentially chosen values into the new block and agrees with the old valuation below its start.
 Consequently it preserves the current substitution and any pending continuation scoped at the old counter.
 The opening theorem then turns the source body's lexical witness into a witness for the runtime body with allocated IDs.
@@ -310,7 +310,7 @@ It is not enough to observe an answer in a subtree and assume it survives as a t
 
 ### The decreasing logical witness
 
-[Denotational/Derivations.v](../src/Denotational/Derivations.v) annotates finite satisfaction derivations with a natural-number work index.
+[Declarative/Derivations.v](../src/Declarative/Derivations.v) annotates finite satisfaction derivations with a natural-number work index.
 Success has index zero, equality has index one, and compound goals include overhead in addition to their successful subderivations.
 Opening and valuation agreement preserve this index.
 A pending list adds one unit per goal as well as each goal's index, so even consuming a successful goal decreases the pending measure.

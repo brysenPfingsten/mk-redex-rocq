@@ -2,7 +2,7 @@ From Stdlib Require Import Arith.Wf_nat.
 From MkRedex.Operational Require Import DelayTracking Scheduling WellFormed Reduction Determinism Delay DelayFairness.
 From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Goals Substitution Environments Trees Terms.
 From Stdlib Require Import List Arith Lia.
-From MkRedex.Denotational Require Import Denotation Opening Valuations Derivations.
+From MkRedex.Declarative Require Import Declarative Opening Valuations Derivations.
 From MkRedex.Execution Require Import Executable RunnerCorrespondence.
 From MkRedex.Correctness Require Import Unification Focus Success Soundness.
 Import ListNotations.

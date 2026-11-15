@@ -3,16 +3,7 @@ From MkRedex.Language Require Import Terms Substitution Goals Environments Trees
 Import ListNotations.
 Set Default Goal Selector "!".
 
-(* ================================================================== *)
-(*  Head — inductive head-reduction relation                           *)
-(* ================================================================== *)
-
-(** [Head G r r'] holds when tree [r] reduces to [r'] by a single head step
-    in environment [G].  Constructors correspond one-to-one with the
-    mk-redex head-reduction rules. *)
 Inductive Head (G : env) : tree -> tree -> Prop :=
-
-  (* ---- Goal rules ---- *)
 
   | H_unify_ok : forall t1 t2 s s',
       Unify t1 t2 (st_sub s) (Some s') ->
@@ -40,14 +31,10 @@ Inductive Head (G : env) : tree -> tree -> Prop :=
       Head G (tgoal (grelcall r ts) s)
              (tdelay (tproceed r ts s))
 
-  (* ---- Proceed rule ---- *)
-
   | H_proceed : forall r ts s n body,
       nth_error G r = Some (n, body) ->
       length ts = n ->
       Head G (tproceed r ts s) (tgoal (open ts body) s)
-
-  (* ---- Conjunction rules ---- *)
 
   | H_prune_conj : forall g,
       Head G (tconj tfail g) tfail
@@ -65,8 +52,6 @@ Inductive Head (G : env) : tree -> tree -> Prop :=
 
   | H_delay_conj : forall t g,
       Head G (tconj (tdelay t) g) (tdelay (tconj t g))
-
-  (* ---- Disjunction rules ---- *)
 
   | H_prune_left : forall t,
       Head G (tdisjL tfail t) t
@@ -98,7 +83,6 @@ Inductive Head (G : env) : tree -> tree -> Prop :=
 
 Hint Constructors Head : core.
 
-(** [Head] is functional: each tree has at most one head reduct. *)
 Lemma Head_functional : forall G r r' r'',
   Head G r r' -> Head G r r'' -> r' = r''.
 Proof.
@@ -111,10 +95,6 @@ Proof.
   - discriminate H4.
   - discriminate H4.
 Qed.
-
-(* ================================================================== *)
-(*  Step and multi-step                                                 *)
-(* ================================================================== *)
 
 Reserved Notation "G '|=' e '-->' e'" (at level 40, e at level 39).
 

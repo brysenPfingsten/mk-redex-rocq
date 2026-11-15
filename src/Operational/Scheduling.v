@@ -91,8 +91,6 @@ Proof.
     + exact IHHburst.
 Qed.
 
-(** Contexts, rotations, and the shell rank. *)
-
 (** The other disjunct gets a turn after one finite burst, regardless of
     whether the marker is already active inside that disjunct. *)
 Inductive selected_marker (m : marked_tree) : marked_tree -> Prop :=
@@ -785,8 +783,6 @@ Proof.
     as [e' Hfinish].
   exists e'. eapply carried_multi_finish; eassumption.
 Qed.
-
-(** Focusing a finite shell of disjunctions. *)
 
 (** A shell records scheduler disjunctions outside an arbitrary marked
     subtree.  Focusing this shell must not inspect the subtree: in

@@ -1,6 +1,6 @@
 From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Goals Substitution Environments Trees Unification.
 From Stdlib Require Import List Arith.
-From MkRedex.Denotational Require Import Denotation Opening.
+From MkRedex.Declarative Require Import Declarative Opening.
 From MkRedex.Correctness Require Import Unification.
 From MkRedex.Operational Require Import Reduction WellFormed.
 From MkRedex.Execution Require Import Executable.

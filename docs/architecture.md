@@ -1,6 +1,6 @@
 # Source organization
 
-The reduction rules describe the runtime machine; the denotation describes
+The reduction rules describe the runtime machine. The declarative semantics specifies
 which ground assignments solve a source goal. These descriptions share
 syntax but are deliberately separate. Correctness modules connect them, and
 execution modules turn the rules into functions and a checked public API.
@@ -15,9 +15,9 @@ opening. `Substitution.v` defines substitutions, runtime states, relational
 walking and substitution application, and substitution acyclicity.
 `Environments.v` represents a relation environment as an indexed list of
 arity/body pairs. `Trees.v` defines runtime trees, active contexts, terminal
-expressions, and ordered observations. These runtime data structures remain
-in the language layer because reduction, denotation bridges, and execution
-all use them without requiring the reduction rules themselves.
+expressions, and ordered observations. They live in the language layer so
+the semantic proofs and executable can use them without importing the
+reduction rules.
 
 `Language/WellFormed.v` contains the entire validity contract: `ok_term`,
 `ok_sub`, `ok_goal`, `ok_env`, `ok_tree`, and `ok_expr`. The term judgment uses
@@ -72,9 +72,9 @@ justify every instrumented step against ordinary reduction. Scheduling and
 fairness use that infrastructure rather than defining another executable
 machine.
 
-## Denotational semantics
+## Declarative semantics
 
-`Denotational/Denotation.v` defines ground values, term interpretation,
+`Declarative/Declarative.v` defines ground values, term interpretation,
 inductive satisfaction, substitution models, and projection onto query
 variables. Recursive calls have finite satisfaction derivations, giving the
 least interpretation of relation definitions. This module does not mention

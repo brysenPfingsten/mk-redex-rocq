@@ -5,10 +5,6 @@ Set Default Goal Selector "!".
 
 Require Import MkRedex.Operational.Reduction.
 
-(* ================================================================== *)
-(*  Plug shape lemmas                                                 *)
-(* ================================================================== *)
-
 Lemma plug_eq_tgoal : forall E r g s,
   plug E r = tgoal g s -> E = chole /\ r = tgoal g s.
 Proof.
@@ -22,10 +18,6 @@ Proof.
   intros E r t H. destruct E; simpl in H; try discriminate.
   split; [reflexivity | exact H].
 Qed.
-
-(* ================================================================== *)
-(*  Plugging a redex into a non-hole context kills the redex           *)
-(* ================================================================== *)
 
 (** plug E r cannot match the shapes that Head inspects on its LHS. *)
 Lemma plug_neq_atomic : forall G E r r_out,
@@ -62,10 +54,6 @@ Proof.
         | eapply Hg; congruence ].
 Qed.
 
-(* ================================================================== *)
-(*  Unique decomposition                                                *)
-(* ================================================================== *)
-
 Lemma plug_head_contradiction : forall G E r r_out r' t,
   Head G r r_out ->
   E <> chole ->
@@ -91,13 +79,11 @@ Proof.
   destruct E2 as [| E2' t2 | t2 E2' | E2' g2];
   simpl in Hplug; try discriminate.
 
-  - (* chole / chole *)
-    split.
+  - split.
     + reflexivity.
     + exact Hplug.
 
-  - (* chole / cdisjL *)
-    exfalso.
+  - exfalso.
     destruct Hhead1 as [r1' Hhead1].
     destruct Hhead2 as [r2' Hhead2].
     apply (plug_head_contradiction G (cdisjL E2' t2) r2 r2' r1' r1).
@@ -106,8 +92,7 @@ Proof.
     + simpl. exact (eq_sym Hplug).
     + exact Hhead1.
 
-  - (* chole / cdisjR *)
-    exfalso.
+  - exfalso.
     destruct Hhead1 as [r1' Hhead1].
     destruct Hhead2 as [r2' Hhead2].
     apply (plug_head_contradiction G (cdisjR t2 E2') r2 r2' r1' r1).
@@ -116,8 +101,7 @@ Proof.
     + simpl. exact (eq_sym Hplug).
     + exact Hhead1.
 
-  - (* chole / cconj *)
-    exfalso.
+  - exfalso.
     destruct Hhead1 as [r1' Hhead1].
     destruct Hhead2 as [r2' Hhead2].
     apply (plug_head_contradiction G (cconj E2' g2) r2 r2' r1' r1).
@@ -126,8 +110,7 @@ Proof.
     + simpl. exact (eq_sym Hplug).
     + exact Hhead1.
 
-  - (* cdisjL / chole *)
-    exfalso.
+  - exfalso.
     destruct Hhead1 as [r1' Hhead1].
     destruct Hhead2 as [r2' Hhead2].
     apply (plug_head_contradiction G (cdisjL E1' t1) r1 r1' r2' r2).
@@ -136,15 +119,13 @@ Proof.
     + simpl. exact Hplug.
     + exact Hhead2.
 
-  - (* cdisjL / cdisjL *)
-    injection Hplug as Hinner Ht.
+  - injection Hplug as Hinner Ht.
     destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
     split.
     + rewrite HE, Ht. reflexivity.
     + exact Hr.
 
-  - (* cdisjR / chole *)
-    exfalso.
+  - exfalso.
     destruct Hhead1 as [r1' Hhead1].
     destruct Hhead2 as [r2' Hhead2].
     apply (plug_head_contradiction G (cdisjR t1 E1') r1 r1' r2' r2).
@@ -153,15 +134,13 @@ Proof.
     + simpl. exact Hplug.
     + exact Hhead2.
 
-  - (* cdisjR / cdisjR *)
-    injection Hplug as Ht Hinner.
+  - injection Hplug as Ht Hinner.
     destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
     split.
     + rewrite HE, Ht. reflexivity.
     + exact Hr.
 
-  - (* cconj / chole *)
-    exfalso.
+  - exfalso.
     destruct Hhead1 as [r1' Hhead1].
     destruct Hhead2 as [r2' Hhead2].
     apply (plug_head_contradiction G (cconj E1' g1) r1 r1' r2' r2).
@@ -170,17 +149,12 @@ Proof.
     + simpl. exact Hplug.
     + exact Hhead2.
 
-  - (* cconj / cconj *)
-    injection Hplug as Hinner Hg.
+  - injection Hplug as Hinner Hg.
     destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
     split.
     + rewrite HE, Hg. reflexivity.
     + exact Hr.
 Qed.
-
-(* ================================================================== *)
-(*  S_ctx is incompatible with the other step shapes                   *)
-(* ================================================================== *)
 
 Lemma ctx_not_delay : forall G E r r' t,
   Head G r r' -> plug E r = tdelay t -> False.
@@ -223,9 +197,6 @@ Local Ltac ctx_contra :=
         | eapply ctx_not_promoteR ];
   eassumption.
 
-(* ================================================================== *)
-(*  Determinism                                                         *)
-(* ================================================================== *)
 (** Compare the two step derivations. Root release/promotion shapes exclude
     contextual head rewrites. For two contextual rewrites, unique decomposition
     identifies their context and redex; head functionality then identifies the
@@ -257,8 +228,6 @@ Proof.
     * exists r2'. exact Hhead2.
     * subst. destruct (Head_functional G r2 r1' r2' Hhead1 Hhead2).
       reflexivity.
-    (*This could defintely be automated but I couldn't figure*)
-    (*out how with Ltac :( *)
   - exfalso.
     injection Hdelay2 as _ Heq. symmetry in Heq.
     eapply ctx_not_delay; eassumption.

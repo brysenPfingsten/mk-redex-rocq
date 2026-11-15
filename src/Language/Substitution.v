@@ -4,7 +4,6 @@ Set Default Goal Selector "!".
 
 Require Import MkRedex.Language.Terms.
 
-(* Substitutions *)
 
 Definition sub := list (nat * term).
 
@@ -20,7 +19,6 @@ Fixpoint lookup (x : nat) (s : sub) : option term :=
   | (y, t) :: s' => if Nat.eqb x y then Some t else lookup x s'
   end.
 
-(* Walk *)
 
 Fixpoint walk_f (fuel : nat) (t : term) (s : sub) : term :=
   match fuel with
@@ -51,7 +49,6 @@ Proof.
   apply IHHt1. rewrite -> H in H1. injection H1 as ->. exact H2.
 Qed.
 
-(* Occurs Check *)
 
 Fixpoint occurs (x : nat) (t : term) : bool :=
   match t with
@@ -96,7 +93,6 @@ Proof.
   - apply IHHout1_1 in H1 as <-. apply IHHout1_2 in H3 as <-. reflexivity.
 Qed.
 
-(* Acyclicity *)
 
 Definition acyclic_sub (s : sub) : Prop :=
   well_founded (fun y x => exists t, lookup x s = Some t /\ occurs y t = true).

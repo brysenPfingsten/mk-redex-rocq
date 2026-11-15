@@ -1,6 +1,6 @@
 From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Goals Substitution Unification Trees.
 From Stdlib Require Import List Arith Lia.
-From MkRedex.Denotational Require Import Denotation.
+From MkRedex.Declarative Require Import Declarative.
 From MkRedex.Operational Require Import WellFormed Reduction.
 From MkRedex.Execution Require Import Executable Unifier.
 Import ListNotations.
@@ -34,8 +34,8 @@ Proof.
   subst b.
   destruct (eval_term_closed_total t 0 c rho [] Hclosed eq_refl) as [v Hv].
   exists v. split; [exact Hv|].
-  rewrite (ApplySub_denotation s' u a Hb rho Hmodel).
-  rewrite <- (ApplySub_denotation s' t a Ha rho Hmodel). exact Hv.
+  rewrite (ApplySub_declarative s' u a Hb rho Hmodel).
+  rewrite <- (ApplySub_declarative s' t a Ha rho Hmodel). exact Hv.
 Qed.
 
 Lemma Unify_ground_old_bindings : forall s t u s' rho,
@@ -201,7 +201,7 @@ Proof.
   assert (Hxapp : ApplySub (ground_sub c rho) (tvar x) (quote (rho x))).
   { eapply ground_sub_apply; [exact Hx|reflexivity]. }
   pose proof (Hmodel x t Hlook _ Hxapp) as Happ.
-  rewrite (ApplySub_denotation _ _ _ Happ rho).
+  rewrite (ApplySub_declarative _ _ _ Happ rho).
   - apply quote_eval.
   - intros y u Hlookup. rewrite lookup_ground_sub in Hlookup.
     destruct (y <? c); [|discriminate]. inversion Hlookup; subst u. apply quote_eval.

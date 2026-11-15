@@ -43,7 +43,7 @@ tail once a match is found. Its generative query therefore returns open
 pair chains such as `(7 . _N)`, not exclusively proper lists. To require
 proper lists, conjoin a `listo` call. Membership in a list containing the
 same value twice produces two answers: search preserves derivation
-multiplicity, while the denotation is a set of ground solutions.
+multiplicity, while the declarative semantics defines a set of ground solutions.
 
 `listo` has an infinite ground solution space, but answers remain symbolic:
 a single length-two answer represents every proper two-element ground list.

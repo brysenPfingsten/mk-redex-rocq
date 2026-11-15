@@ -1,6 +1,6 @@
 From MkRedex.Language Require Import WellFormed WellFormedProperties ScopedUnification Terms Goals Environments.
 From Stdlib Require Import List Arith Lia.
-From MkRedex.Denotational Require Import Denotation.
+From MkRedex.Declarative Require Import Declarative.
 From MkRedex.Correctness Require Import Unification.
 From MkRedex.Operational Require Import WellFormed.
 Import ListNotations.
@@ -58,8 +58,6 @@ Proof.
       (values := [ground_list xs;ground_list ys;ground_list (xs++ys)]);
       try reflexivity. apply IH.
 Qed.
-
-(** A source-level specification example, independent of the stepper. *)
 Theorem appendo_concatenates : forall xs ys rho,
   satisfies relation_library rho []
     (grelcall 0 [quote (ground_list xs);quote (ground_list ys);quote (ground_list (xs++ys))]).

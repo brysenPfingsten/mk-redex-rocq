@@ -111,8 +111,6 @@ Proof.
   induction E; intros m Hactive; simpl; auto.
 Qed.
 
-(** Lifting finite marked traces through contexts. *)
-
 (** Every carry is either a head reduction, an enclosing-delay release,
     or one of the two answer promotions.  This classification supports
     finite-trace lifting through further scheduler contexts. *)
@@ -402,8 +400,6 @@ Proof.
   - eapply carried_multi_trans; eassumption.
   - apply active_mark_plug_active. exact Hactive.
 Qed.
-
-(** Global no-stranding. *)
 
 Theorem eventually_active : forall G marked,
   ok_env G -> ok_expr G (erase_marked marked) ->
