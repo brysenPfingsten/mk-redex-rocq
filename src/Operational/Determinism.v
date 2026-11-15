@@ -45,13 +45,10 @@ Lemma Head_plug_stable : forall G E r r_out,
 Proof.
   intros G E r r_out HHead HNotHole r' Hplug.
   destruct E; [contradiction | | |]; simpl in Hplug;
-  destruct (plug_neq_atomic G E r r_out HHead) as [Hf [Hd [Hll [Hlr Hg]]]];
+  destruct (plug_neq_atomic G E r r_out HHead) as (Hf & Hd & Hll & Hlr & Hg);
   inversion Hplug;
-  first [ apply Hf; congruence
-        | eapply Hd; congruence
-        | eapply Hll; congruence
-        | eapply Hlr; congruence
-        | eapply Hg; congruence ].
+  first [ apply Hf | eapply Hd | eapply Hll | eapply Hlr | eapply Hg ];
+  congruence.
 Qed.
 
 Lemma plug_head_contradiction : forall G E r r_out r' t,
@@ -67,6 +64,10 @@ Proof.
   exact Hhead.
 Qed.
 
+Local Ltac rule_out_context E r r_out r' t :=
+  eapply (plug_head_contradiction _ E r r_out r' t);
+  [eassumption | discriminate | simpl; congruence | eassumption].
+
 Lemma unique_decomp : forall G E1 E2 r1 r2,
   plug E1 r1 = plug E2 r2 ->
   (exists r1', Head G r1 r1') ->
@@ -78,82 +79,26 @@ Proof.
   intros E2 r1 r2 Hplug Hhead1 Hhead2;
   destruct E2 as [| E2' t2 | t2 E2' | E2' g2];
   simpl in Hplug; try discriminate.
-
-  - split.
-    + reflexivity.
-    + exact Hplug.
-
-  - exfalso.
-    destruct Hhead1 as [r1' Hhead1].
-    destruct Hhead2 as [r2' Hhead2].
-    apply (plug_head_contradiction G (cdisjL E2' t2) r2 r2' r1' r1).
-    + exact Hhead2.
-    + discriminate.
-    + simpl. exact (eq_sym Hplug).
-    + exact Hhead1.
-
-  - exfalso.
-    destruct Hhead1 as [r1' Hhead1].
-    destruct Hhead2 as [r2' Hhead2].
-    apply (plug_head_contradiction G (cdisjR t2 E2') r2 r2' r1' r1).
-    + exact Hhead2.
-    + discriminate.
-    + simpl. exact (eq_sym Hplug).
-    + exact Hhead1.
-
-  - exfalso.
-    destruct Hhead1 as [r1' Hhead1].
-    destruct Hhead2 as [r2' Hhead2].
-    apply (plug_head_contradiction G (cconj E2' g2) r2 r2' r1' r1).
-    + exact Hhead2.
-    + discriminate.
-    + simpl. exact (eq_sym Hplug).
-    + exact Hhead1.
-
-  - exfalso.
-    destruct Hhead1 as [r1' Hhead1].
-    destruct Hhead2 as [r2' Hhead2].
-    apply (plug_head_contradiction G (cdisjL E1' t1) r1 r1' r2' r2).
-    + exact Hhead1.
-    + discriminate.
-    + simpl. exact Hplug.
-    + exact Hhead2.
-
-  - injection Hplug as Hinner Ht.
-    destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
-    split.
-    + rewrite HE, Ht. reflexivity.
-    + exact Hr.
-
-  - exfalso.
-    destruct Hhead1 as [r1' Hhead1].
-    destruct Hhead2 as [r2' Hhead2].
-    apply (plug_head_contradiction G (cdisjR t1 E1') r1 r1' r2' r2).
-    + exact Hhead1.
-    + discriminate.
-    + simpl. exact Hplug.
-    + exact Hhead2.
-
-  - injection Hplug as Ht Hinner.
-    destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
-    split.
-    + rewrite HE, Ht. reflexivity.
-    + exact Hr.
-
-  - exfalso.
-    destruct Hhead1 as [r1' Hhead1].
-    destruct Hhead2 as [r2' Hhead2].
-    apply (plug_head_contradiction G (cconj E1' g1) r1 r1' r2' r2).
-    + exact Hhead1.
-    + discriminate.
-    + simpl. exact Hplug.
-    + exact Hhead2.
-
-  - injection Hplug as Hinner Hg.
-    destruct (IHE1 E2' r1 r2 Hinner Hhead1 Hhead2) as [HE Hr].
-    split.
-    + rewrite HE, Hg. reflexivity.
-    + exact Hr.
+  all: try solve [split; congruence].
+  all: try solve [
+    destruct Hhead1 as [r1' Hhead1];
+    destruct Hhead2 as [r2' Hhead2];
+    exfalso;
+    first [
+      rule_out_context (cdisjL E1' t1) r1 r1' r2' r2
+    | rule_out_context (cdisjR t1 E1') r1 r1' r2' r2
+    | rule_out_context (cconj E1' g1) r1 r1' r2' r2
+    | rule_out_context (cdisjL E2' t2) r2 r2' r1' r1
+    | rule_out_context (cdisjR t2 E2') r2 r2' r1' r1
+    | rule_out_context (cconj E2' g2) r2 r2' r1' r1
+    ]
+  ].
+  all: injection Hplug as H1 H2;
+    first [
+      destruct (IHE1 E2' r1 r2 H1 Hhead1 Hhead2) as [-> ->]
+    | destruct (IHE1 E2' r1 r2 H2 Hhead1 Hhead2) as [-> ->]
+    ];
+    split; congruence.
 Qed.
 
 Lemma ctx_not_delay : forall G E r r' t,
