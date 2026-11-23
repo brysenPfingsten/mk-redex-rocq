@@ -137,10 +137,9 @@ Local Ltac ctx_contra :=
   | H : (_, plug _ _) = (_, _) |- _ => injection H as _ H
   | H : (_, _) = (_, plug _ _) |- _ => injection H as _ H; symmetry in H
   end;
-  first [ eapply ctx_not_delay
-        | eapply ctx_not_promoteL
-        | eapply ctx_not_promoteR ];
-  eassumption.
+  first [ solve [eapply ctx_not_delay; eassumption]
+        | solve [eapply ctx_not_promoteL; eassumption]
+        | solve [eapply ctx_not_promoteR; eassumption] ].
 
 (** Compare the two step derivations. Root release/promotion shapes exclude
     contextual head rewrites. For two contextual rewrites, unique decomposition
@@ -153,44 +152,27 @@ Theorem step_deterministic : forall G e e1 e2,
   G |= e --> e2 ->
   e1 = e2.
 Proof.
-  intros. 
-  inversion H as 
+  intros G e e1 e2 Hstep1 Hstep2.
+  inversion Hstep1 as
   [ ans1 E1 r1 r1' Hhead1 Hplug1 Hplug1'
   | ans1 t1 Hdelay1 Hans1
   | ans1 s1 t1 HdisjL1 Hans1
   | ans1 s1 t1 HdisjR1 Hans1
   ];
-  inversion H0 as 
+  inversion Hstep2 as
   [ ans2 E2 r2 r2' Hhead2 Hplug2 Hplug2'
   | ans2 t2 Hdelay2 Hans2
   | ans2 s2 t2 HdisjL2 Hans2
   | ans2 s2 t2 HdisjR2 Hans2
-  ]; 
-  subst; simpl in *; try congruence.
-  - injection Hplug2 as Hans Hplug. apply eq_sym in Hplug. 
-    destruct (unique_decomp G E1 E2 r1 r2 Hplug).
+  ];
+  subst; simpl in *; clear Hstep1; clear Hstep2;
+  try congruence; try ctx_contra.
+  - injection Hplug2 as -> Hplug.
+    destruct (unique_decomp G E1 E2 r1 r2 (eq_sym Hplug)).
     * exists r1'. exact Hhead1.
     * exists r2'. exact Hhead2.
     * subst. destruct (Head_functional G r2 r1' r2' Hhead1 Hhead2).
       reflexivity.
-  - exfalso.
-    injection Hdelay2 as _ Heq. symmetry in Heq.
-    eapply ctx_not_delay; eassumption.
-  - exfalso. 
-    injection HdisjL2 as _ Heq. symmetry in Heq.
-    eapply ctx_not_promoteL; eassumption.
-  - exfalso. 
-    injection HdisjR2 as _ Heq. symmetry in Heq.
-    eapply ctx_not_promoteR; eassumption.
-  - exfalso.
-    injection Hplug2 as _ Heq.
-    eapply ctx_not_delay; eassumption.
-  - exfalso.
-    injection Hplug2 as _ Heq.
-    eapply ctx_not_promoteL; eassumption.
-  - exfalso. 
-    injection Hplug2 as _ Heq.
-    eapply ctx_not_promoteR; eassumption.
 Qed.
 
 Lemma value_no_step : forall G e e',
