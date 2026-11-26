@@ -14,23 +14,23 @@ Inductive UnifyW : term -> term -> sub -> option sub -> Prop :=
   | UW_var_bind : forall x u s,
       lookup x s = None ->
       u <> tvar x ->
-      ~ DeepOccurs s x u ->
+      ~ Occurs s x u ->
       UnifyW (tvar x) u s (Some ((x, u) :: s))
 
   | UW_var_fail : forall x u s,
       u <> tvar x ->
-      DeepOccurs s x u ->
+      Occurs s x u ->
       UnifyW (tvar x) u s None
 
   | UW_sym_bind : forall u y s,
       lookup y s = None ->
       (forall z, u <> tvar z) ->
-      ~ DeepOccurs s y u ->
+      ~ Occurs s y u ->
       UnifyW u (tvar y) s (Some ((y, u) :: s))
 
   | UW_sym_fail : forall u y s,
       (forall z, u <> tvar z) ->
-      DeepOccurs s y u ->
+      Occurs s y u ->
       UnifyW u (tvar y) s None
 
   | UW_cons_ok : forall a1 a2 b1 b2 wa1 wb1 wa2 wb2 s s1 r,
@@ -224,8 +224,8 @@ Proof.
 Qed.
 
 
-Lemma occurs_trans_DeepOccurs : forall s x c t,
-  occurs c t = true -> DeepOccurs s x (tvar c) -> DeepOccurs s x t.
+Lemma occurs_trans_Occurs : forall s x c t,
+  occurs c t = true -> Occurs s x (tvar c) -> Occurs s x t.
 Proof.
   intros s x c. induction t; simpl; intros H HDO; try discriminate H.
   - apply Nat.eqb_eq in H. subst. exact HDO.
@@ -244,25 +244,25 @@ Proof.
   induction Hunify; intros Hacyclic s'' Hr; inversion Hr; subst.
   - exact Hacyclic.
   - assert (step_E : forall a,
-        ~ DeepOccurs s x (tvar a) ->
+        ~ Occurs s x (tvar a) ->
         Acc (fun y z => exists t, lookup z ((x, u) :: s) = Some t /\ occurs y t = true) a).
     { apply (well_founded_ind Hacyclic (fun a =>
-          ~ DeepOccurs s x (tvar a) ->
+          ~ Occurs s x (tvar a) ->
           Acc (fun y z => exists t, lookup z ((x, u) :: s) = Some t /\ occurs y t = true) a)).
       intros a IH HnDO.
       assert (Hax : a <> x) by (intro Heq; subst; exact (HnDO (DO_var s x))).
       apply Acc_intro. intros c (ta & Hla & Hoc).
       simpl in Hla. rewrite (proj2 (Nat.eqb_neq a x) Hax) in Hla.
-      assert (HnDOt : ~ DeepOccurs s x ta)
+      assert (HnDOt : ~ Occurs s x ta)
         by (intro Hd; exact (HnDO (DO_walk s x a ta Hla Hd))).
       apply (IH c (ex_intro _ ta (conj Hla Hoc))).
-      intro Hdc; exact (HnDOt (occurs_trans_DeepOccurs s x c ta Hoc Hdc)). }
+      intro Hdc; exact (HnDOt (occurs_trans_Occurs s x c ta Hoc Hdc)). }
     assert (acc_x :
         Acc (fun y z => exists t, lookup z ((x, u) :: s) = Some t /\ occurs y t = true) x).
     { apply Acc_intro. intros c (tx & Hlx & Hoc).
       simpl in Hlx. rewrite Nat.eqb_refl in Hlx. simpl in Hlx. injection Hlx as <-.
       apply step_E.
-      intro Hdc; exact (H1 (occurs_trans_DeepOccurs s x c u Hoc Hdc)). }
+      intro Hdc; exact (H1 (occurs_trans_Occurs s x c u Hoc Hdc)). }
     intro a. destruct (Nat.eqb_spec a x) as [-> | Hax].
     + exact acc_x.
     + revert a Hax.
@@ -275,25 +275,25 @@ Proof.
       * exact acc_x.
       * exact (IH c (ex_intro _ ta (conj Hla Hoc)) Hcx).
   - assert (step_E : forall a,
-        ~ DeepOccurs s y (tvar a) ->
+        ~ Occurs s y (tvar a) ->
         Acc (fun c z => exists t, lookup z ((y, u) :: s) = Some t /\ occurs c t = true) a).
     { apply (well_founded_ind Hacyclic (fun a =>
-          ~ DeepOccurs s y (tvar a) ->
+          ~ Occurs s y (tvar a) ->
           Acc (fun c z => exists t, lookup z ((y, u) :: s) = Some t /\ occurs c t = true) a)).
       intros a IH HnDO.
       assert (Hay : a <> y) by (intro Heq; subst; exact (HnDO (DO_var s y))).
       apply Acc_intro. intros c (ta & Hla & Hoc).
       simpl in Hla. rewrite (proj2 (Nat.eqb_neq a y) Hay) in Hla.
-      assert (HnDOt : ~ DeepOccurs s y ta)
+      assert (HnDOt : ~ Occurs s y ta)
         by (intro Hd; exact (HnDO (DO_walk s y a ta Hla Hd))).
       apply (IH c (ex_intro _ ta (conj Hla Hoc))).
-      intro Hdc; exact (HnDOt (occurs_trans_DeepOccurs s y c ta Hoc Hdc)). }
+      intro Hdc; exact (HnDOt (occurs_trans_Occurs s y c ta Hoc Hdc)). }
     assert (acc_y :
         Acc (fun c z => exists t, lookup z ((y, u) :: s) = Some t /\ occurs c t = true) y).
     { apply Acc_intro. intros c (ty & Hly & Hoc).
       simpl in Hly. rewrite Nat.eqb_refl in Hly. simpl in Hly. injection Hly as <-.
       apply step_E.
-      intro Hdc; exact (H1 (occurs_trans_DeepOccurs s y c u Hoc Hdc)). }
+      intro Hdc; exact (H1 (occurs_trans_Occurs s y c u Hoc Hdc)). }
     intro a. destruct (Nat.eqb_spec a y) as [-> | Hay].
     + exact acc_y.
     + revert a Hay.
@@ -475,15 +475,15 @@ Proof.
   exact (ApplySub_has_walk s t r Happ).
 Qed.
 
-Lemma DeepOccurs_dec : forall s,
+Lemma Occurs_dec : forall s,
   acyclic_sub s -> forall x t,
-    {DeepOccurs s x t} + {~ DeepOccurs s x t}.
+    {Occurs s x t} + {~ Occurs s x t}.
 Proof.
   intros s Hacyclic x.
   assert (core : forall t,
       (forall y, occurs y t = true ->
-         {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}) ->
-      {DeepOccurs s x t} + {~ DeepOccurs s x t}). {
+         {Occurs s x (tvar y)} + {~ Occurs s x (tvar y)}) ->
+      {Occurs s x t} + {~ Occurs s x t}). {
     intro t. induction t; intros Hvars.
     - apply Hvars. simpl. apply Nat.eqb_refl.
     - right. intro H. inversion H.
@@ -493,11 +493,11 @@ Proof.
     - right. intro H. inversion H.
     - right. intro H. inversion H.
     - assert (Hleft : forall y, occurs y t1 = true ->
-          {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}). {
+          {Occurs s x (tvar y)} + {~ Occurs s x (tvar y)}). {
         intros y Hy. apply Hvars. simpl. rewrite Hy. reflexivity.
       }
       assert (Hright : forall y, occurs y t2 = true ->
-          {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}). {
+          {Occurs s x (tvar y)} + {~ Occurs s x (tvar y)}). {
         intros y Hy. apply Hvars. simpl. rewrite Hy.
         destruct (occurs y t1); reflexivity.
       }
@@ -508,7 +508,7 @@ Proof.
         * right. intro H. inversion H; subst; contradiction.
   }
   assert (Hvar : forall y,
-      {DeepOccurs s x (tvar y)} + {~ DeepOccurs s x (tvar y)}). {
+      {Occurs s x (tvar y)} + {~ Occurs s x (tvar y)}). {
     apply (well_founded_induction_type Hacyclic). intros y IH.
     destruct (Nat.eq_dec x y) as [-> | Hneq].
     - left. apply DO_var.
@@ -867,8 +867,8 @@ Proof.
   subst. exact Hru.
 Qed.
 
-Lemma DeepOccurs_tsize_model : forall s x u,
-  DeepOccurs s x u -> forall s2,
+Lemma Occurs_tsize_model : forall s x u,
+  Occurs s x u -> forall s2,
   models_sub s2 s ->
   forall r1, ApplySub s2 (tvar x) r1 ->
   forall r2, ApplySub s2 u r2 ->
@@ -916,11 +916,11 @@ Proof.
     + exact (Hneq eq_refl).
     + pose proof (Walk_tvar_free s t2 y Hw2) as Hfree. congruence.
     + inversion Hu as [| | a' b' ra rb Ha Hb | t'' Hnotvar Hnotcons]; subst.
-      { pose proof (DeepOccurs_tsize_model s x a HDO' s2 Hmodel (tcons ra rb) Hx ra Ha) as Hts.
+      { pose proof (Occurs_tsize_model s x a HDO' s2 Hmodel (tcons ra rb) Hx ra Ha) as Hts.
         simpl in Hts. lia. }
       { exfalso. exact (Hnotcons a b eq_refl). }
     + inversion Hu as [| | a' b' ra rb Ha Hb | t'' Hnotvar Hnotcons]; subst.
-      { pose proof (DeepOccurs_tsize_model s x b HDO' s2 Hmodel (tcons ra rb) Hx rb Hb) as Hts.
+      { pose proof (Occurs_tsize_model s x b HDO' s2 Hmodel (tcons ra rb) Hx rb Hb) as Hts.
         simpl in Hts. lia. }
       { exfalso. exact (Hnotcons a b eq_refl). }
   - rename H into Hneq. rename H0 into HDO.
@@ -936,11 +936,11 @@ Proof.
     * exact (Hneq y eq_refl).
     * pose proof (Walk_tvar_free _ _ _ Hw1) as Hfree. congruence.
     * inversion Hu as [| | a' b' ra rb Ha Hb | t'' Hnotvar Hnotcons]; subst.
-      + pose proof (DeepOccurs_tsize_model _ _ _ HDO' s2 Hmodel (tcons ra rb) Hy ra Ha) as Hts.
+      + pose proof (Occurs_tsize_model _ _ _ HDO' s2 Hmodel (tcons ra rb) Hy ra Ha) as Hts.
         simpl in Hts. lia.
       + exact (Hnotcons a b eq_refl).
     * inversion Hu as [| | a' b' ra rb Ha Hb | t'' Hnotvar Hnotcons]; subst.
-      + pose proof (DeepOccurs_tsize_model _ _ _ HDO' s2 Hmodel (tcons ra rb) Hy rb Hb) as Hts.
+      + pose proof (Occurs_tsize_model _ _ _ HDO' s2 Hmodel (tcons ra rb) Hy rb Hb) as Hts.
         simpl in Hts. lia.
       + exact (Hnotcons a b eq_refl).
   - assert (Hunitcons : unifier s2 (tcons a1 a2) (tcons b1 b2)) by

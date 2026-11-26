@@ -57,14 +57,14 @@ Fixpoint occurs (x : nat) (t : term) : bool :=
   | _ => false
   end.
 
-Inductive DeepOccurs (s : sub) (x : nat) : term -> Prop :=
-  | DO_var  : DeepOccurs s x (tvar x)
+Inductive Occurs (s : sub) (x : nat) : term -> Prop :=
+  | DO_var  : Occurs s x (tvar x)
   | DO_walk : forall y t,
       lookup y s = Some t ->
-      DeepOccurs s x t ->
-      DeepOccurs s x (tvar y)
-  | DO_cons_l : forall a b, DeepOccurs s x a -> DeepOccurs s x (tcons a b)
-  | DO_cons_r : forall a b, DeepOccurs s x b -> DeepOccurs s x (tcons a b).
+      Occurs s x t ->
+      Occurs s x (tvar y)
+  | DO_cons_l : forall a b, Occurs s x a -> Occurs s x (tcons a b)
+  | DO_cons_r : forall a b, Occurs s x b -> Occurs s x (tcons a b).
 
 Inductive ApplySub (s : sub) : term -> term -> Prop :=
   | AS_free  : forall x,

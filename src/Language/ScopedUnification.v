@@ -114,7 +114,7 @@ Proof.
   intros s x u Hacyclic Hfree.
   destruct (term_eq_dec u (tvar x)) as [-> | Hneq].
   - exists (Some s). constructor.
-  - destruct (DeepOccurs_dec s Hacyclic x u) as [Hocc | Hocc].
+  - destruct (Occurs_dec s Hacyclic x u) as [Hocc | Hocc].
     + exists None. apply UW_var_fail; assumption.
     + exists (Some ((x, u) :: s)). apply UW_var_bind; assumption.
 Qed.
@@ -124,7 +124,7 @@ Lemma UnifyW_var_right_total : forall s u y,
   (forall z, u <> tvar z) -> exists r, UnifyW u (tvar y) s r.
 Proof.
   intros s u y Hacyclic Hfree Hnotvar.
-  destruct (DeepOccurs_dec s Hacyclic y u) as [Hocc | Hocc].
+  destruct (Occurs_dec s Hacyclic y u) as [Hocc | Hocc].
   - exists None. apply UW_sym_fail; assumption.
   - exists (Some ((y, u) :: s)). apply UW_sym_bind; assumption.
 Qed.
@@ -148,7 +148,7 @@ Proof.
   intros s x u Hacyclic Hfree.
   destruct (term_eq_dec u (tvar x)) as [-> | Hneq].
   - exists (Some s). constructor.
-  - destruct (DeepOccurs_dec s Hacyclic x u) as [Hocc | Hocc].
+  - destruct (Occurs_dec s Hacyclic x u) as [Hocc | Hocc].
     + exists None. apply UW_var_fail; assumption.
     + exists (Some ((x, u) :: s)). apply UW_var_bind; assumption.
 Defined.
@@ -159,7 +159,7 @@ Definition UnifyW_var_right_choice : forall s u y,
   {r : option sub | UnifyW u (tvar y) s r}.
 Proof.
   intros s u y Hacyclic Hfree Hnotvar.
-  destruct (DeepOccurs_dec s Hacyclic y u) as [Hocc | Hocc].
+  destruct (Occurs_dec s Hacyclic y u) as [Hocc | Hocc].
   - exists None. apply UW_sym_fail; assumption.
   - exists (Some ((y, u) :: s)). apply UW_sym_bind; assumption.
 Defined.
