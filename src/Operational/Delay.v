@@ -4,7 +4,6 @@ From MkRedex.Operational Require Import Reduction WellFormed Determinism.
 Import ListNotations.
 Set Default Goal Selector "!".
 
-(** [compose_ctx outer inner] puts [inner] in the hole of [outer]. *)
 Fixpoint compose_ctx (outer inner : ctx) : ctx :=
   match outer with
   | chole => inner
@@ -26,8 +25,6 @@ Fixpoint ctx_depth (E : ctx) : nat :=
   | cdisjL E _ | cdisjR _ E | cconj E _ => S (ctx_depth E)
   end.
 
-(** This is the tree placed under the delay after it bubbles to the root.
-    A disjunction changes its active side as the delay rotates out. *)
 Fixpoint delay_payload (E : ctx) (t : tree) : tree :=
   match E with
   | chole => t
@@ -36,7 +33,6 @@ Fixpoint delay_payload (E : ctx) (t : tree) : tree :=
   | cconj E g => tconj (delay_payload E t) g
   end.
 
-(** Exact length, so the theorem below gives a concrete scheduling bound. *)
 Inductive steps_n (G : env) : nat -> expr -> expr -> Prop :=
   | steps_n_zero : forall e, steps_n G 0 e e
   | steps_n_succ : forall n e1 e2 e3,
@@ -71,9 +67,6 @@ Proof.
     subst b'. exact (IH _ Htail').
 Qed.
 
-(** An exposed delay crosses exactly one evaluation-context frame per
-    head step.  [outer] lets the induction lift each move through all
-    frames that have not yet been crossed. *)
 Theorem delay_bubbles_in_context : forall G ans E outer t,
   steps_n G (ctx_depth E)
     (ans, plug outer (plug E (tdelay t)))
@@ -126,9 +119,6 @@ Proof.
   eapply steps_n_multi. apply active_delay_released.
 Qed.
 
-(** Determinism rules out a competing schedule that postpones this
-    exposed delay.  This theorem does not claim that a delay in an
-    inactive branch is already exposed. *)
 Corollary active_delay_forced : forall G ans E t e',
   steps_n G (S (ctx_depth E)) (ans, plug E (tdelay t)) e' ->
   e' = (ans, delay_payload E t).
@@ -139,10 +129,6 @@ Proof.
   - apply active_delay_released.
 Qed.
 
-(** A relation call first creates a delay, which then crosses the active
-    context and is released.  The continuation may be on the suspended
-    side of a disjunction after the rotation, as intended by the search
-    scheduler. *)
 Corollary relation_call_delay_released : forall G ans E r ts s,
   steps_n G (S (S (ctx_depth E)))
     (ans, plug E (tgoal (grelcall r ts) s))
@@ -154,8 +140,6 @@ Proof.
   - apply active_delay_released.
 Qed.
 
-(** Once the currently selected branch exposes a delay, the two
-    disjunction rules rotate it away and select the waiting branch. *)
 Theorem delay_handoff_left : forall G ans E t waiting,
   steps_n G (S (S (ctx_depth E)))
     (ans, tdisjL (plug E (tdelay t)) waiting)
@@ -188,11 +172,6 @@ Proof.
       * constructor.
 Qed.
 
-(** Work until the next delay reaches the root.  [tproceed] can unfold an
-    arbitrarily large relation body, so its count is the first component
-    of a lexicographic measure.  The weighted second component pays for
-    administrative reassociation and continuation distribution.  Work
-    under a delay is omitted because reaching that delay ends the burst. *)
 Fixpoint goal_work (g : goal) : nat :=
   match g with
   | gsucc => 1
@@ -215,73 +194,62 @@ Proof.
     try rewrite IHg1, IHg2; try rewrite IHg; reflexivity.
 Qed.
 
-Fixpoint proceed_count (t : tree) : nat :=
-  match t with
-  | tfail | tgoal _ _ | tdelay _ => 0
-  | tproceed _ _ _ => 1
-  | tconj t' _ => proceed_count t'
-  | tdisjL t1 t2 | tdisjR t1 t2 => proceed_count t1 + proceed_count t2
-  end.
+Definition env_work (G : env) : nat :=
+  fold_right Nat.max 0 (map (fun entry => goal_work (snd entry)) G).
 
-Fixpoint tree_work (t : tree) : nat :=
+Lemma env_work_bound : forall G r n body,
+  nth_error G r = Some (n, body) -> goal_work body <= env_work G.
+Proof.
+  induction G as [|[arity g] G IH]; intros r n body Hlookup;
+    destruct r; simpl in *; try discriminate.
+  - injection Hlookup as <- <-. unfold env_work. simpl. lia.
+  - specialize (IH _ _ _ Hlookup). unfold env_work in *. simpl. lia.
+Qed.
+
+Fixpoint tree_work (G : env) (t : tree) : nat :=
   match t with
   | tfail => 1
   | tgoal g _ => goal_work g
   | tdelay _ => 0
-  | tproceed _ _ _ => 1
-  | tconj t' g => (goal_work g + 3) * tree_work t' + 1
-  | tdisjL t1 t2 => 2 * tree_work t1 + tree_work t2 + 1
-  | tdisjR t1 t2 => tree_work t1 + 2 * tree_work t2 + 1
+  | tproceed _ _ _ => S (env_work G)
+  | tconj t' g => (goal_work g + 3) * tree_work G t' + 1
+  | tdisjL t1 t2 => 2 * tree_work G t1 + tree_work G t2 + 1
+  | tdisjR t1 t2 => tree_work G t1 + 2 * tree_work G t2 + 1
   end.
 
 Lemma Head_burst_decreases : forall G r r',
-  Head G r r' ->
-  proceed_count r' < proceed_count r \/
-  (proceed_count r' = proceed_count r /\ tree_work r' < tree_work r).
+  Head G r r' -> tree_work G r' < tree_work G r.
 Proof.
   intros G r r' Hhead. destruct Hhead; simpl;
     try rewrite goal_work_open_goal;
     try pose proof (goal_work_positive g);
-    try (right; split; [lia | nia]);
-    try (left; lia).
-  - right. split; [reflexivity |].
-    unfold open. rewrite goal_work_open_goal. lia.
-  - destruct (proceed_count r2) eqn:Hcount.
-    + right. split; lia.
-    + left. lia.
-  - destruct (proceed_count r2) eqn:Hcount.
-    + right. split; lia.
-    + left. lia.
+    try nia.
+  - unfold open. rewrite goal_work_open_goal. lia.
+  - unfold open. rewrite goal_work_open_goal.
+    pose proof (env_work_bound G r n body H) as Hbound. lia.
 Qed.
 
-Lemma plug_burst_decreases : forall E r r',
-  (proceed_count r' < proceed_count r \/
-   (proceed_count r' = proceed_count r /\ tree_work r' < tree_work r)) ->
-  proceed_count (plug E r') < proceed_count (plug E r) \/
-  (proceed_count (plug E r') = proceed_count (plug E r) /\
-   tree_work (plug E r') < tree_work (plug E r)).
+Lemma plug_burst_decreases : forall G E r r',
+  tree_work G r' < tree_work G r ->
+  tree_work G (plug E r') < tree_work G (plug E r).
 Proof.
-  induction E; intros r r' Hdec; simpl; [exact Hdec |..];
+  intros G E. induction E; intros r r' Hdec; simpl; [exact Hdec |..];
     specialize (IHE r r' Hdec);
-    destruct IHE as [Hcount | [Hcount Hwork]];
     try pose proof (goal_work_positive g);
-    [left | right | left | right | left | right];
-    try split; nia.
+    nia.
 Qed.
 
 Lemma step_before_root_delay_decreases : forall G e e',
   G |= e --> e' ->
   (forall t, snd e <> tdelay t) ->
-  lex_count_size
-    (proceed_count (snd e'), tree_work (snd e'))
-    (proceed_count (snd e), tree_work (snd e)).
+  tree_work G (snd e') < tree_work G (snd e).
 Proof.
   intros G e e' Hstep Hnotdelay.
-  destruct Hstep; unfold lex_count_size; simpl.
-  - exact (plug_burst_decreases E r r' (Head_burst_decreases G r r' H)).
+  destruct Hstep; simpl.
+  - exact (plug_burst_decreases G E r r' (Head_burst_decreases G r r' H)).
   - exfalso. eapply Hnotdelay. reflexivity.
-  - right. simpl. split; lia.
-  - right. simpl. split; lia.
+  - simpl. nia.
+  - simpl. nia.
 Qed.
 
 Definition burst_end (e : expr) : Prop :=
@@ -301,7 +269,6 @@ Proof.
   - left. right. eexists. reflexivity.
 Qed.
 
-(** A burst stops before any root [S_delay] step. *)
 Inductive burst_steps (G : env) : expr -> expr -> Prop :=
   | burst_stop : forall e, burst_steps G e e
   | burst_next : forall e1 e2 e3,
@@ -317,20 +284,16 @@ Proof.
   - eapply multi_step; eassumption.
 Qed.
 
-(** Between two root-delay releases there is only a finite burst of
-    ordinary work.  A recursive relation call introduces another delay
-    before its body is unfolded again. *)
 Theorem finite_burst_marked : forall G e,
   ok_env G -> ok_expr G e ->
   exists e', burst_steps G e e' /\ burst_end e'.
 Proof.
   intros G e Henv Hok.
-  set (measure := fun e : expr =>
-    (proceed_count (snd e), tree_work (snd e))).
+  set (measure := fun e : expr => tree_work G (snd e)).
   assert (Hmain : forall m, forall e,
     measure e = m -> ok_expr G e ->
     exists e', burst_steps G e e' /\ burst_end e').
-  { apply (well_founded_induction lex_count_size_wf
+  { apply (well_founded_induction lt_wf
       (fun m => forall e, measure e = m -> ok_expr G e ->
         exists e', burst_steps G e e' /\ burst_end e')).
     intros m IH current Hmeasure Hcurrent.
@@ -342,7 +305,7 @@ Proof.
         { intros t Heq. apply Hnotend. right. exists t. exact Heq. }
         pose proof (step_before_root_delay_decreases G current next
           Hstep Hnotdelay) as Hless.
-        change (lex_count_size (measure next) (measure current)) in Hless.
+        change (measure next < measure current) in Hless.
         rewrite Hmeasure in Hless.
         destruct (IH (measure next) Hless next eq_refl
           (step_ok G current next Henv Hcurrent Hstep))
@@ -451,9 +414,6 @@ Proof.
     + exact IHHburst.
 Qed.
 
-(** Even if the other branch performs arbitrarily much finite work, it
-    must eventually yield or terminate.  The waiting sibling then becomes
-    the selected branch. *)
 Theorem waiting_branch_selected_left : forall G ans active waiting,
   ok_env G -> ok_expr G (ans, active) ->
   exists ans' E,
@@ -526,9 +486,6 @@ Proof.
   - exact Hans.
 Qed.
 
-(** A delay waiting as the other immediate disjunct is eventually
-    released, regardless of how many finite steps the selected branch
-    needs before its next yield. *)
 Theorem waiting_delay_released_left : forall G ans active E t,
   ok_env G ->
   ok_expr G (ans, tdisjL active (plug E (tdelay t))) ->
