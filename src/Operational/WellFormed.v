@@ -307,11 +307,6 @@ Proof.
     + exact (step_disjR_context G ans t2 e' t1 Hstep).
 Qed.
 
-(** Tree progress classifies the selected child as reducible, terminal, or
-    delayed. Each boundary shape enables the appropriate parent rewrite or
-    root promotion/release. Total unification and valid proceed lookup exclude
-    stuck atomic goals. This theorem guarantees a next step or a terminal
-    expression, not eventual termination of search. *)
 Theorem progress : forall G e,
   ok_expr G e -> is_value e \/ exists e', G |= e --> e'.
 Proof.

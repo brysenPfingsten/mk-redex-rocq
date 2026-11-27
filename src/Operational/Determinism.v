@@ -40,7 +40,7 @@ Proof.
   - repeat split; discriminate.
 Qed.
 
-Lemma Head_plug_stable : forall G E r r_out,
+Lemma plugged_head_not_head : forall G E r r_out,
   Head G r r_out -> E <> chole -> forall r', ~Head G (plug E r) r'.
 Proof.
   intros G E r r_out HHead HNotHole r' Hplug.
@@ -59,7 +59,7 @@ Lemma plug_head_contradiction : forall G E r r_out r' t,
   False.
 Proof.
   intros G E r r_out r' t HHead HNH Hplug Hhead.
-  apply (Head_plug_stable G E r r_out HHead HNH r').
+  apply (plugged_head_not_head G E r r_out HHead HNH r').
   rewrite Hplug.
   exact Hhead.
 Qed.
@@ -78,9 +78,22 @@ Proof.
   induction E1 as [| E1' IHE1 t1 | t1 E1' IHE1 | E1' IHE1 g1];
   intros E2 r1 r2 Hplug Hhead1 Hhead2;
   destruct E2 as [| E2' t2 | t2 E2' | E2' g2];
-  simpl in Hplug; try discriminate.
+  simpl in Hplug.
+  (* Different nonempty outer frames have different tree constructors. *)
+  all: try solve [discriminate Hplug].
+  (* If both contexts are holes, their redexes are already equal. *)
   all: try solve [split; congruence].
+  (* Matching frames fix the selected child; apply induction there. *)
   all: try solve [
+    injection Hplug as H1 H2;
+    first [
+      destruct (IHE1 E2' r1 r2 H1 Hhead1 Hhead2) as [-> ->]
+    | destruct (IHE1 E2' r1 r2 H2 Hhead1 Hhead2) as [-> ->]
+    ];
+    split; congruence
+  ].
+  (* A head redex cannot occur at the root and inside a proper context. *)
+  all:
     destruct Hhead1 as [r1' Hhead1];
     destruct Hhead2 as [r2' Hhead2];
     exfalso;
@@ -91,14 +104,7 @@ Proof.
     | rule_out_context (cdisjL E2' t2) r2 r2' r1' r1
     | rule_out_context (cdisjR t2 E2') r2 r2' r1' r1
     | rule_out_context (cconj E2' g2) r2 r2' r1' r1
-    ]
-  ].
-  all: injection Hplug as H1 H2;
-    first [
-      destruct (IHE1 E2' r1 r2 H1 Hhead1 Hhead2) as [-> ->]
-    | destruct (IHE1 E2' r1 r2 H2 Hhead1 Hhead2) as [-> ->]
-    ];
-    split; congruence.
+    ].
 Qed.
 
 Lemma ctx_not_delay : forall G E r r' t,

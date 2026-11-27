@@ -10,7 +10,7 @@ Set Default Goal Selector "!".
     [head_fn] checks the head rules at one tree node.  [active_head_fn]
     first tries that node, then follows only the child selected by the
     scheduler; a head rule at an enclosing node takes priority.  The
-    proof of completeness uses [Head_plug_stable] to rule out a competing
+    proof of completeness uses [plugged_head_not_head] to rule out a competing
     enclosing head rewrite.  [next_step] adds the three root-only rules:
     delay release and answer promotion from either disjunction state.
 
@@ -156,7 +156,7 @@ Proof.
   intros G E r r' Hok Hnonempty Hhead.
   destruct (head_fn G (plug E r) Hok) as [out|] eqn:Hresult;
     [|reflexivity].
-  exfalso. eapply Head_plug_stable;
+  exfalso. eapply plugged_head_not_head;
     [exact Hhead | exact Hnonempty |].
   eapply head_fn_sound. exact Hresult.
 Qed.
